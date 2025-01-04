@@ -195,7 +195,7 @@ class Personagem{
 		this._teclasDeComandos = teclasConfiguradasPorComando;
 
 		this._proximaAnimacao = 0;
-		this._posX = 100; 
+		this._posX = 150; 
 		this._posY = 0; 
         this._posDestinoX = 0; 
         this._posDestinoY = 0;		
