@@ -1,0 +1,35 @@
+body {
+    margin: 0;
+    overflow: hidden;
+}   
+
+a {
+    text-decoration: none !important;
+}
+
+#headerinfo {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: grid;
+    grid-row-gap: 5px;
+}
+
+.nametag {
+    padding: 5px;
+    background: #ffffffb5;
+    border: 1px solid black;
+    border-radius: .25em;
+    font-family: courier;
+    font-weight: bold;
+    box-shadow: 2px 3px 5px 1px #0000006b;
+}
+
+.link_icons {
+    display: grid;
+    grid-row-gap: 5px;
+    grid-column-gap: 0px;
+    grid-auto-flow: column;
+    justify-content: space-around;
+    align-items: center;
+}
