@@ -36,10 +36,22 @@
                 </a>
             </div>    
         </div>
-        <canvas class="myCanvas">
-          <p>Elemento Canvas não suportado.</p>
-        </canvas>
-        <script type="text/javascript" src="./main.js">
+		<div id="container"></div>
+		<!-- <div id="blocker"></div> -->
+
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://unpkg.com/three@0.150.1/build/three.module.js",
+					"three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
+				}
+			}
+		</script>
+        <script type="module" src="./main.js">
         </script>
     </body>
 </html>
