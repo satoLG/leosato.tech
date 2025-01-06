@@ -51,7 +51,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./main.js">
+        <script type="module" src="./main_1.0.js">
         </script>
     </body>
 </html>

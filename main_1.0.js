@@ -32,7 +32,7 @@ camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight
 camera.position.set( 100, 150, 100 );
 
 controls = new TrackballControls( camera, renderer.domElement );
-controls.rotateSpeed = 15;
+controls.rotateSpeed = 10;
 
 // const controls = new OrbitControls( camera, renderer.domElement );
 // controls.target.set( 0, 0.5, 0 );
