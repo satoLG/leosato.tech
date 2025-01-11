@@ -31,15 +31,17 @@ scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.04 ).text
 camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 5000 );
 camera.position.set( 100, 150, 100 );
 
-controls = new TrackballControls( camera, renderer.domElement );
-controls.rotateSpeed = 10;
+// controls = new TrackballControls( camera, renderer.domElement );
+// controls.rotateSpeed = 10;
 
-// const controls = new OrbitControls( camera, renderer.domElement );
-// controls.target.set( 0, 0.5, 0 );
-// controls.update();
-// controls.enablePan = false;
-// controls.enableDamping = true;
-
+controls = new OrbitControls( camera, renderer.domElement );
+controls.target.set( 0, 0.5, 0 );
+controls.update();
+controls.enablePan = false;
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI / 2;
+controls.minPolarAngle = Math.PI / 3;
+controls.rotateSpeed = 0.5;
 
 function createLights() {
     const light1 = new THREE.DirectionalLight( new THREE.Color( 'white' ), 0.2 );
@@ -55,7 +57,6 @@ function createLights() {
 
     scene.add( light1 );
     // scene.add( new THREE.CameraHelper( light1.shadow.camera ) );
-    // ... (existing code for other lights, if any)
 }
 
 createLights()
@@ -77,7 +78,7 @@ bulbLight.shadowMapVisible = true;
 scene.add( bulbLight );
 
 // we add the shadow plane automatically 
-const groundGeometry = new THREE.CircleGeometry(200, 200);
+const groundGeometry = new THREE.CircleGeometry(2000, 2000);
 const groundMaterial = new THREE.MeshPhongMaterial({color: new THREE.Color( 'lightgreen' ), side: THREE.DoubleSide});
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
@@ -85,21 +86,34 @@ ground.position.set(0, -0, 0);
 ground.rotation.set(-Math.PI/2, 0, 0);
 ground.receiveShadow = true;
 
+// scene.fog = new THREE.Fog( 0xcccccc, 100, 1000);
+
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath( 'jsm/' );
 
-const loader = new GLTFLoader();
+const manager = new THREE.LoadingManager();
+manager.onStart = function ( url, itemsLoaded, itemsTotal ) {
+	console.log( 'Started loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+};
+
+manager.onLoad = function ( ) {
+	console.log( 'Loading complete!');
+};
+
+manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+	console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' );
+};
+
+manager.onError = function ( url ) {
+	console.log( 'There was an error loading ' + url );
+};
+
+const loader = new GLTFLoader(manager);
 loader.setDRACOLoader( dracoLoader );
 
 loader.load( 'models/fogueira.glb', function ( gltf ) {
 
     const model = gltf.scene;
-    // model.traverse( function ( child )
-    // {
-    //     console.log(child)
-    //     child.castShadow = true;
-    //     child.receiveShadow = true;
-    // });
 
     model.position.set( 1, 1, 1 );
     model.scale.set( 10, 10, 10 );
@@ -124,8 +138,8 @@ loader.load( 'models/tent.glb', function ( gltf ) {
     model.traverse( function ( child )
     {
         console.log(child)
-        child.castShadow = true;
-        child.receiveShadow = true;
+        // child.castShadow = true;
+        // child.receiveShadow = true;
     });
 
     model.position.set( 1, 1, -60 );
@@ -155,7 +169,7 @@ loader.load( 'models/retro_computer.glb', function ( gltf ) {
         child.receiveShadow = true;
     });
 
-    model.position.set( 1, 1, 100 );
+    model.position.set( 1, 0, 100 );
     // model.scale.set( 0.01, 0.01, 0.01 );
     console.log(model)
     model.rotation.y = Math.PI;
@@ -190,8 +204,58 @@ loader.load( 'models/smartphone.glb', function ( gltf ) {
     // model.rotation.z = Math.PI / 2;
     scene.add( model );
 
-    // mixer = new THREE.AnimationMixer( model );
-    // mixer.clipAction( gltf.animations[ 0 ] ).play();
+    renderer.shadowMap.enabled = true;
+    renderer.setAnimationLoop( animate );
+
+
+}, undefined, function ( e ) {
+
+    console.error( e );
+
+} );
+
+loader.load( 'models/nintendo_game_boy.glb', function ( gltf ) {
+
+    const model = gltf.scene;
+    model.traverse( function ( child )
+    {
+        console.log(child)
+        child.castShadow = true;
+        child.receiveShadow = true;
+    });
+
+    model.position.set( 15, 11, -70 );
+    model.scale.set( 100, 100, 100 );
+    console.log(model)
+    model.rotation.x = -(Math.PI / 2);
+    // model.rotation.z = Math.PI / 2;
+    scene.add( model );
+
+    renderer.shadowMap.enabled = true;
+    renderer.setAnimationLoop( animate );
+
+
+}, undefined, function ( e ) {
+
+    console.error( e );
+
+} );
+
+loader.load( 'models/trees.glb', function ( gltf ) {
+
+    const model = gltf.scene;
+    model.traverse( function ( child )
+    {
+        console.log(child)
+        child.castShadow = true;
+        child.receiveShadow = true;
+    });
+
+    model.position.set( 1, 1, -460 );
+    model.scale.set( 15, 15, 15 );
+    console.log(model)
+    scene.add( model );
+
     renderer.shadowMap.enabled = true;
     renderer.setAnimationLoop( animate );
 
@@ -213,15 +277,6 @@ window.onresize = function () {
 
 
 function animate() {
-
-    // const delta = clock.getDelta();
-
-    // mixer.update( delta );
-
     controls.update();
-
-    // stats.update();
-
     renderer.render( scene, camera );
-
 }
