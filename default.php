@@ -2,7 +2,7 @@
 <html lang="pt">
     <head>
         <title>Leonardo Sato</title>
-        <link rel="icon" type="image/x-icon" href="./dev.ico">
+        <link rel="icon" type="image/x-icon" href="./img/dev.ico">
         <meta charset="utf-8">
         <meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible">
         <meta content="Página padrão" name="description">
@@ -10,7 +10,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
-        <link href="./main.css" rel="stylesheet">
+        <link href="./css/main.css" rel="stylesheet">
     </head>
     <body>
         <div id="headerinfo">
@@ -38,8 +38,6 @@
         </div>
         <div id="css"></div>
 		<div id="container"></div>
-        <div id="blocker"></div>
-		<!-- <div id="blocker"></div> -->
 
 		<!-- Import maps polyfill -->
 		<!-- Remove this when import maps will be widely supported -->
@@ -53,7 +51,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./main_1.3.js">
+        <script type="module" src="./js/main_1.4.js">
         </script>     
     </body>
 </html>
