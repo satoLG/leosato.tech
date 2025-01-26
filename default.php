@@ -51,7 +51,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/under_construction_1.0.js">
+        <script type="module" src="./js/under_construction_1.1.js">
         </script>  
         <!-- <script type="module" src="./js/main_1.4.js">
         </script> -->

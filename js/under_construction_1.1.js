@@ -11,6 +11,8 @@ import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
 let bulbLight, bulbMat;
 
+const textMeshes = [];
+
 // const clock = new THREE.Clock();
 const container = document.getElementById( 'container' );
 
@@ -24,6 +26,7 @@ const renderer = new THREE.WebGLRenderer( {
 } );
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.shadowMap.enabled = true;
 
 const pmremGenerator = new THREE.PMREMGenerator( renderer );
 
@@ -117,9 +120,6 @@ function load_model( loader, model_path, position, scale ) {
         model.scale.set( scale[0], scale[1], scale[2] );
         scene.add( model );
 
-        renderer.shadowMap.enabled = true;
-        renderer.setAnimationLoop( animate );
-
     }, undefined, function ( e ) {
 
         console.error( e );
@@ -193,11 +193,12 @@ function addText(text, fontPath, position, size, height, color, border=undefined
         }
 
         scene.add(mesh);
+        textMeshes.push(mesh);
     });
 }
 
 const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
-addText(
+const textMesh = addText(
     `
     under
     construction
@@ -213,9 +214,22 @@ window.onresize = function () {
 
 };
 
+const clock = new THREE.Clock();
+
 function animate() {
+
+    const  elapsedTime = clock.getElapsedTime();
+    bulbLight.position.y = Math.cos( elapsedTime ) * 10 + 40;
+    if (textMeshes.length > 0){
+        textMeshes.forEach(textMesh => {
+            textMesh.position.y = Math.sin( elapsedTime ) * 2 + 10;
+        });
+    }
 
     window.controls.update();
     renderer.render( scene, window.camera );
+    window.requestAnimationFrame( animate );
 
 }
+
+animate();
