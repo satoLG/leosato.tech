@@ -76,7 +76,7 @@ bulbMat = new THREE.MeshStandardMaterial( {
     color: new THREE.Color( 'orange' )
 } );
 bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
-bulbLight.position.set( 0,30,0 );
+bulbLight.position.set( 0,40,-40 );
 bulbLight.intensity = 3;
 bulbLight.distance = 120;
 bulbLight.castShadow = true;
@@ -85,7 +85,7 @@ scene.add( bulbLight );
 
 // we add the shadow plane automatically 
 const groundGeometry = new THREE.CircleGeometry(100, 100);
-const groundMaterial = new THREE.MeshPhongMaterial({color: new THREE.Color( 'lightgreen' ), side: THREE.DoubleSide});
+const groundMaterial = new THREE.MeshPhongMaterial({color: new THREE.Color( 'darkgreen' ), side: THREE.DoubleSide});
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
 ground.position.set(0, 0, 0);
@@ -127,41 +127,83 @@ function load_model( loader, model_path, position, scale ) {
     } );
 }
 
-load_model( loader, 'models/road_cone.glb', [0,0,0], [30,30,30] );
-load_model( loader, 'models/road_cone.glb', [-10,0,-15], [30,30,30] );
-load_model( loader, 'models/road_cone.glb', [20,0,-10], [30,30,30] );
-load_model( loader, 'models/road_cone.glb', [10,0,25], [30,30,30] );
-load_model( loader, 'models/road_cone.glb', [-20,0,15], [30,30,30] );
+load_model( loader, 'models/road_cone.glb', [15,0,15], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [-15,0,15], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [-15,0,-15], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [15,0,-15], [12,12,12] );
 
 
-const textLoader = new FontLoader();
+load_model( loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [-20.6,0,-10.6], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [20.6,0,-10.6], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12] );
 
-textLoader.load('https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json', function (font) {
-   // TextGeometry(String, Object)
-   const textObj = new TextGeometry(
+load_model( loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [-21.2,0,0], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [0,0,-21.2], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [21.2,0,0], [12,12,12] );
+
+
+load_model( loader, 'models/road_cone.glb', [10.6,0,20.6], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [-10.6,0,20.6], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [-10.6,0,-20.6], [12,12,12] );
+load_model( loader, 'models/road_cone.glb', [10.6,0,-20.6], [12,12,12] );
+
+
+function addText(text, fontPath, position, size, height, color, border=undefined) {
+    const textLoader = new FontLoader();
+    
+    textLoader.load(fontPath, function (font) {
+        // TextGeometry(String, Object)
+        const textObj = new TextGeometry(
+        text, {
+            font: font,
+            size: size,
+            height: height,
+            depth: 11,
+            curveSegments: 12,
+            bevelEnabled: false,
+        });
+        const material = new THREE.MeshPhysicalMaterial({color: color});
+        const mesh = new THREE.Mesh(textObj, material);
+        mesh.position.set(position[0], position[1], position[2]);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        if (border) {
+            const outerGeometry = new TextGeometry( text, {
+                font: font,
+                size: size,
+                height: height/2,
+				depth: 10,
+				curveSegments: 12,
+				bevelEnabled: true,
+				bevelThickness: 0,
+				bevelSize: 0.2, // size of border
+				bevelOffset: 0,
+				bevelSegments: 1
+			} );
+
+            const borderText = new THREE.Mesh(
+                outerGeometry,
+                new THREE.MeshPhysicalMaterial( {color: border} )
+            );	
+            borderText.position.z = 0.1;
+            mesh.add( borderText );
+        }
+
+        scene.add(mesh);
+    });
+}
+
+const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
+addText(
     `
-    tamo construindo, 
-    tamo construindo
-    - Sato, 2025
-    `, {
-      font: font,
-      size: 2,
-      height: 1,
-      curveSegments: 12,
-      bevelEnabled: true,
-      bevelThickness: 0.01,
-      bevelSize: 0.01,
-      bevelOffset: 0,
-      bevelSegments: 1
-   });
-   const material = new THREE.MeshBasicMaterial({color: 'red'});
-   const mesh = new THREE.Mesh(textObj, material);
-   mesh.position.set(10, 25, 0);
-   mesh.castShadow = true;
-    mesh.receiveShadow = true;
-   scene.add(mesh);
-   console.log('foo');
-});
+    under
+    construction
+    `, 
+    fontPath, [-15, 10, 0], 2.5, 0.5, 'orange', 'black'
+);
 
 window.onresize = function () {
 
