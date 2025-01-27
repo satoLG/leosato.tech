@@ -6,34 +6,36 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
-import { FontLoader } from 'three/addons/loaders/FontLoader.js';
-import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
-
-let bulbLight, bulbMat;
+import { loadModel, addText, createLights } from './utils.js';
 
 const textMeshes = [];
 
-// const clock = new THREE.Clock();
+const clock = new THREE.Clock();
+
+// Scene setup
 const container = document.getElementById( 'container' );
 
-// const stats = new Stats();
-// container.appendChild( stats.dom );
-
+// Renderer
 const renderer = new THREE.WebGLRenderer( { 
     antialias: true, 
     alpha: true,
     powerPreference: 'high-performance', 
 } );
-renderer.setPixelRatio( window.devicePixelRatio );
+renderer.setPixelRatio( Math.min( window.devicePixelRatio, 2 ) );
 renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.shadowMap.enabled = true;
 
+container.appendChild( renderer.domElement );
+
+// Environment map
 const pmremGenerator = new THREE.PMREMGenerator( renderer );
 
+// Scene setup
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#1d374d');
 scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.04 ).texture;
 
+// Camera and controls
 window.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 2000 );
 window.camera.position.set( 1, 50, 50 );
 
@@ -50,155 +52,72 @@ window.controls.maxZoom = 3;
 window.controls.minZoom = 1;
 window.controls.rotateSpeed = 0.5;
 
-container.appendChild( renderer.domElement );
+// Environment light setup
+createLights(scene)
 
-function createLights() {
-    const light1 = new THREE.DirectionalLight( new THREE.Color( 'white' ), 0.2 );
-    light1.position.set( 1, 500, 1 );
+// Street lamp light setup
+const bulbGeometry = new THREE.SphereGeometry( 0.002, 0.002, 0.002 );
+const bulbLight = new THREE.PointLight( new THREE.Color( '0x332e2e' ), 1, 100, 2 );
 
-    light1.castShadow = true;  // Enable shadow casting for the light
-
-    // Configure the shadow properties (optional, but can give better shadow quality)
-    light1.shadow.mapSize.width = 512;  // Default is 512
-    light1.shadow.mapSize.height = 512; // Default is 512
-    light1.shadow.camera.near = 0.5;    // Default is 0.5
-    light1.shadow.camera.far = 50;      // Default is 500
-
-    scene.add( light1 );
-    // scene.add( new THREE.CameraHelper( light1.shadow.camera ) );
-}
-
-createLights()
-
-const bulbGeometry = new THREE.SphereGeometry( 0.02, 0.020, 0.02 );
-bulbLight = new THREE.PointLight( new THREE.Color( 'orange' ), 1, 100, 2 );
-
-bulbMat = new THREE.MeshStandardMaterial( {
-    emissive: new THREE.Color( 'orange' ),
+const bulbMat = new THREE.MeshStandardMaterial( {
+    emissive: new THREE.Color( 'white' ),
     emissiveIntensity: 150,
-    color: new THREE.Color( 'orange' )
+    color: new THREE.Color( 'white' )
 } );
 bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
-bulbLight.position.set( 0,40,-40 );
-bulbLight.intensity = 3;
-bulbLight.distance = 120;
+// set bulbLight position to the street_lamp position
+bulbLight.position.set( 0, 25, -10 );
+bulbLight.intensity = 2;
+bulbLight.distance = 80;
 bulbLight.castShadow = true;
 bulbLight.shadowMapVisible = true;
 scene.add( bulbLight );
 
-// we add the shadow plane automatically 
+// Ground plane setup 
 const groundGeometry = new THREE.CircleGeometry(100, 100);
-const groundMaterial = new THREE.MeshPhongMaterial({color: new THREE.Color( 'darkgreen' ), side: THREE.DoubleSide});
+const groundMaterial = new THREE.MeshPhongMaterial({color: new THREE.Color( 'gray' ), side: THREE.DoubleSide});
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
 ground.position.set(0, 0, 0);
 ground.rotation.set(-Math.PI/2, 0, 0);
 ground.receiveShadow = true;
 
-// scene.fog = new THREE.Fog( 0xcccccc, 100, 1000);
-
+// Setup model loader
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath( 'jsm/' );
 
 const loader = new GLTFLoader();
 loader.setDRACOLoader( dracoLoader );
 
-function load_model( loader, model_path, position, scale ) {
-    loader.load( model_path, function ( gltf ) {
+// Loading models
+loadModel( scene, loader, 'models/road_cone.glb', [15,0,15], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [-15,0,15], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [-15,0,-15], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [15,0,-15], [12,12,12] );
 
-        const model = gltf.scene;
+loadModel( scene, loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [-20.6,0,-10.6], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [20.6,0,-10.6], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12] );
 
-        model.traverse( function ( child )
-        {
-            if ( child.isMesh ) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-            }
-        });
+loadModel( scene, loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [-21.2,0,0], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [0,0,-21.2], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [21.2,0,0], [12,12,12] );
 
-        model.position.set( position[0], position[1], position[2] );
-        model.scale.set( scale[0], scale[1], scale[2] );
-        scene.add( model );
-
-    }, undefined, function ( e ) {
-
-        console.error( e );
-
-    } );
-}
-
-load_model( loader, 'models/road_cone.glb', [15,0,15], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [-15,0,15], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [-15,0,-15], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [15,0,-15], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [10.6,0,20.6], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [-10.6,0,20.6], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [-10.6,0,-20.6], [12,12,12] );
+loadModel( scene, loader, 'models/road_cone.glb', [10.6,0,-20.6], [12,12,12] );
+// the street_lamp is upside down, so we need to rotate it
+loadModel( scene, loader, 'models/street_lamp.glb', [10,0,-10], [6,4,6], [-Math.PI,Math.PI/2,0], true );
 
 
-load_model( loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [-20.6,0,-10.6], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [20.6,0,-10.6], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12] );
-
-load_model( loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [-21.2,0,0], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [0,0,-21.2], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [21.2,0,0], [12,12,12] );
-
-
-load_model( loader, 'models/road_cone.glb', [10.6,0,20.6], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [-10.6,0,20.6], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [-10.6,0,-20.6], [12,12,12] );
-load_model( loader, 'models/road_cone.glb', [10.6,0,-20.6], [12,12,12] );
-
-
-function addText(text, fontPath, position, size, height, color, border=undefined) {
-    const textLoader = new FontLoader();
-    
-    textLoader.load(fontPath, function (font) {
-        // TextGeometry(String, Object)
-        const textObj = new TextGeometry(
-        text, {
-            font: font,
-            size: size,
-            height: height,
-            depth: 11,
-            curveSegments: 12,
-            bevelEnabled: false,
-        });
-        const material = new THREE.MeshPhysicalMaterial({color: color});
-        const mesh = new THREE.Mesh(textObj, material);
-        mesh.position.set(position[0], position[1], position[2]);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-
-        if (border) {
-            const outerGeometry = new TextGeometry( text, {
-                font: font,
-                size: size,
-                height: height/2,
-				depth: 10,
-				curveSegments: 12,
-				bevelEnabled: true,
-				bevelThickness: 0,
-				bevelSize: 0.2, // size of border
-				bevelOffset: 0,
-				bevelSegments: 1
-			} );
-
-            const borderText = new THREE.Mesh(
-                outerGeometry,
-                new THREE.MeshPhysicalMaterial( {color: border} )
-            );	
-            borderText.position.z = 0.1;
-            mesh.add( borderText );
-        }
-
-        scene.add(mesh);
-        textMeshes.push(mesh);
-    });
-}
-
+// Adding text
 const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
-const textMesh = addText(
+addText(
+    textMeshes,
+    scene,
     `
     under
     construction
@@ -206,20 +125,21 @@ const textMesh = addText(
     fontPath, [-15, 10, 0], 2.5, 0.5, 'orange', 'black'
 );
 
+// Resize event
 window.onresize = function () {
 
     window.camera.aspect = window.innerWidth / window.innerHeight;
     window.camera.updateProjectionMatrix();
+    renderer.setPixelRatio( Math.min( window.devicePixelRatio, 2 ) );
     renderer.setSize( window.innerWidth, window.innerHeight );
 
 };
 
-const clock = new THREE.Clock();
-
+// Animation loop
 function animate() {
 
-    const  elapsedTime = clock.getElapsedTime();
-    bulbLight.position.y = Math.cos( elapsedTime ) * 10 + 40;
+    const elapsedTime = clock.getElapsedTime();
+
     if (textMeshes.length > 0){
         textMeshes.forEach(textMesh => {
             textMesh.position.y = Math.sin( elapsedTime ) * 2 + 10;
