@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
-export function loadModel(scene, loader, model_path, position, scale, rotation=[0,0,0], allowShadow=true) {
+export function loadModel(animationMixers, renderer, scene, loader, model_path, position, scale, rotation=[0,0,0], allowShadow=true) {
     loader.load( model_path, function ( gltf ) {
 
         const model = gltf.scene;
@@ -21,6 +21,12 @@ export function loadModel(scene, loader, model_path, position, scale, rotation=[
         model.rotation.set( rotation[0], rotation[1], rotation[2] );
         scene.add( model );
 
+        if (gltf.animations.length > 0) {
+            console.log('animations', gltf.animations);
+            const mixer = new THREE.AnimationMixer( model );
+            mixer.clipAction( gltf.animations[ 0 ] ).play();
+            animationMixers.push(mixer);
+        }
     }, undefined, function ( e ) {
 
         console.error( e );

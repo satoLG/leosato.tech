@@ -9,6 +9,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { loadModel, addText, createLights } from './utils.js';
 
 const textMeshes = [];
+const animationMixers = [];
 
 const clock = new THREE.Clock();
 
@@ -46,10 +47,12 @@ window.controls.enablePan = false;
 window.controls.enableDamping = true;
 window.controls.maxPolarAngle = Math.PI / 2;
 window.controls.minPolarAngle = Math.PI / 3;
+window.controls.minAzimuthAngle = - Math.PI / 2; // radians
+window.controls.maxAzimuthAngle = Math.PI / 2; // radians
 window.controls.maxDistance = 100;
 window.controls.minDistance = 50;
 window.controls.maxZoom = 3;
-window.controls.minZoom = 1;
+window.controls.minZoom = 0.5;
 window.controls.rotateSpeed = 0.5;
 
 // Environment light setup
@@ -71,10 +74,14 @@ bulbLight.intensity = 2;
 bulbLight.distance = 80;
 bulbLight.castShadow = true;
 bulbLight.shadowMapVisible = true;
+bulbLight.shadow.mapSize.width = 260;
+bulbLight.shadow.mapSize.height = 260;
+bulbLight.shadow.camera.far = 5;
 scene.add( bulbLight );
 
 // Ground plane setup 
 const groundGeometry = new THREE.CircleGeometry(100, 100);
+groundGeometry.wireframe = true;
 const groundMaterial = new THREE.MeshPhongMaterial({color: new THREE.Color( 'gray' ), side: THREE.DoubleSide});
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 scene.add(ground);
@@ -90,28 +97,29 @@ const loader = new GLTFLoader();
 loader.setDRACOLoader( dracoLoader );
 
 // Loading models
-loadModel( scene, loader, 'models/road_cone.glb', [15,0,15], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [-15,0,15], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [-15,0,-15], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [15,0,-15], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [15,0,15], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [-15,0,15], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [-15,0,-15], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [15,0,-15], [12,12,12] );
 
-loadModel( scene, loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [-20.6,0,-10.6], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [20.6,0,-10.6], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [-20.6,0,-10.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [20.6,0,-10.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12] );
 
-loadModel( scene, loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [-21.2,0,0], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [0,0,-21.2], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [21.2,0,0], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [-21.2,0,0], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [0,0,-21.2], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [21.2,0,0], [12,12,12] );
 
-loadModel( scene, loader, 'models/road_cone.glb', [10.6,0,20.6], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [-10.6,0,20.6], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [-10.6,0,-20.6], [12,12,12] );
-loadModel( scene, loader, 'models/road_cone.glb', [10.6,0,-20.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [10.6,0,20.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [-10.6,0,20.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [-10.6,0,-20.6], [12,12,12] );
+loadModel( animationMixers, renderer, scene, loader, 'models/road_cone.glb', [10.6,0,-20.6], [12,12,12] );
 // the street_lamp is upside down, so we need to rotate it
-loadModel( scene, loader, 'models/street_lamp.glb', [10,0,-10], [6,4,6], [-Math.PI,Math.PI/2,0], true );
+loadModel( animationMixers, renderer, scene, loader, 'models/street_lamp.glb', [10,0,-10], [6,4,6], [-Math.PI,Math.PI/2,0], true );
 
+loadModel( animationMixers, renderer, scene, loader, 'models/office_worker.glb', [-5,-0.5,-10], [8,8,8] );
 
 // Adding text
 const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
@@ -143,6 +151,12 @@ function animate() {
     if (textMeshes.length > 0){
         textMeshes.forEach(textMesh => {
             textMesh.position.y = Math.sin( elapsedTime ) * 2 + 10;
+        });
+    }
+
+    if (animationMixers.length > 0){
+        animationMixers.forEach(mixer => {
+            mixer.update( (1/60)*1.5 );
         });
     }
 
