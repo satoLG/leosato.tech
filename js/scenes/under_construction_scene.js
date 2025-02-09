@@ -54,16 +54,15 @@ class UnderConstructionScene extends ThreejsScene {
         loader.setDRACOLoader( dracoLoader );
 
         // Load models
-        this.loadModel(loader, 'models/road_cone.glb', [15,0,15], [12,12,12] );
-        this.loadModel(loader, 'models/road_cone.glb', [-15,0,15], [12,12,12] );
-        this.loadModel(loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12] );
-        this.loadModel(loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12] );
-        this.loadModel(loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12] );
-        this.loadModel(loader, 'models/road_cone.glb', [8.6,0,20.6], [12,12,12] );
-        this.loadModel(loader, 'models/road_cone.glb', [-8.6,0,20.6], [12,12,12] );
+        this.loadModel(loader, 'models/road_cone.glb', [15,0,15], [12,12,12], true);
+        this.loadModel(loader, 'models/road_cone.glb', [-15,0,15], [12,12,12], true);
+        this.loadModel(loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12], true);
+        this.loadModel(loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12], true);
+        this.loadModel(loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12], true);
+        this.loadModel(loader, 'models/road_cone.glb', [8.6,0,20.6], [12,12,12], true);
+        this.loadModel(loader, 'models/road_cone.glb', [-8.6,0,20.6], [12,12,12], true);
 
         this.loadModel(loader, 'models/street_lamp.glb', [10, 0, -10], [6, 4, 6], [-Math.PI, Math.PI / 2, 0], true);
-        this.loadModel(loader, 'models/office_worker.glb', [-5, -0.5, -10], [8, 8, 8]);
 
         // Add text
         const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
