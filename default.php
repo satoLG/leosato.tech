@@ -39,6 +39,7 @@
         <div id="css"></div>
 		<div id="container"></div>
 
+        <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.20"></script>
         <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
 		<!-- Import maps polyfill -->
 		<!-- Remove this when import maps will be widely supported -->
@@ -52,9 +53,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/under_construction_1.2.js">
-        </script>  
-        <!-- <script type="module" src="./js/main_1.4.js">
-        </script> -->
+        <script type="module" src="./js/main.js">
+        </script>
     </body>
 </html>
