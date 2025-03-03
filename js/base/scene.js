@@ -31,10 +31,6 @@ class ThreejsScene {
         throw new Error('You have to implement the method populateScene!');
     }
 
-    customAnimate() {
-        throw new Error('You have to implement the method preAnimate!');
-    }
-
     animate() {
         this.customAnimate();
 
@@ -42,10 +38,40 @@ class ThreejsScene {
         window.requestAnimationFrame( this.animate.bind(this) );
     }
 
-
+    customAnimate() {
+        throw new Error('You have to implement the method customAnimate!');
+    }
 
     destroy() {
         if (this.debugGui) this.debugGui.close();
+
+        // Dispose of scene resources
+        this.scene.traverse((object) => {
+            if (!object.isMesh) return;
+
+            object.geometry.dispose();
+
+            if (object.material.isMaterial) {
+                this.disposeMaterial(object.material);
+            } else {
+                // an array of materials
+                for (const material of object.material) this.disposeMaterial(material);
+            }
+        });
+
+        this.renderer.dispose();
+    }
+
+    disposeMaterial(material) {
+        // Dispose of material resources
+        for (const key in material) {
+            if (!material.hasOwnProperty(key)) continue;
+
+            const value = material[key];
+            if (value && typeof value.dispose === 'function') {
+                value.dispose();
+            }
+        }
     }
 
 }

@@ -47,22 +47,40 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
+        document.getElementById('loading-screen').style.display = '';
+        // Loading manager
+        const loadingManager = new THREE.LoadingManager(
+            () => {
+                // On load complete
+                document.getElementById('loading-screen').style.display = 'none';
+            },
+            (itemUrl, itemsLoaded, itemsTotal) => {
+                // On progress
+                const progress = (itemsLoaded / itemsTotal) * 100;
+                document.getElementById('progress-bar').style.width = `${progress}%`;
+            },
+            (url) => {
+                // On load start
+                document.getElementById('loading-screen').style.display = '';
+            }
+        );
+
         // Setup model loader
         const dracoLoader = new DRACOLoader();
         dracoLoader.setDecoderPath( 'jsm/' );
-        const loader = new GLTFLoader();
+        const loader = new GLTFLoader(loadingManager);
         loader.setDRACOLoader( dracoLoader );
 
         // Load models
-        this.loadModel(loader, 'models/road_cone.glb', [15,0,15], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/road_cone.glb', [-15,0,15], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/road_cone.glb', [-20.6,0,10.6], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/road_cone.glb', [20.6,0,10.6], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/road_cone.glb', [0,0,21.2], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/road_cone.glb', [8.6,0,20.6], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/road_cone.glb', [-8.6,0,20.6], [12,12,12], [0,0,0], true);
+        this.loadModel(loader, 'models/under_construction/road_cone.glb', [15,0,15], [12,12,12], [0,0,0], true);
+        this.loadModel(loader, 'models/under_construction/road_cone.glb', [-15,0,15], [12,12,12], [0,0,0], true);
+        this.loadModel(loader, 'models/under_construction/road_cone.glb', [-20.6,0,10.6], [12,12,12], [0,0,0], true);
+        this.loadModel(loader, 'models/under_construction/road_cone.glb', [20.6,0,10.6], [12,12,12], [0,0,0], true);
+        this.loadModel(loader, 'models/under_construction/road_cone.glb', [0,0,21.2], [12,12,12], [0,0,0], true);
+        this.loadModel(loader, 'models/under_construction/road_cone.glb', [8.6,0,20.6], [12,12,12], [0,0,0], true);
+        this.loadModel(loader, 'models/under_construction/road_cone.glb', [-8.6,0,20.6], [12,12,12], [0,0,0], true);
 
-        this.loadModel(loader, 'models/street_lamp.glb', [10, 0, -10], [6, 4, 6], [-Math.PI, Math.PI / 2, 0], true);
+        this.loadModel(loader, 'models/under_construction/street_lamp.glb', [10, 0, -10], [6, 4, 6], [-Math.PI, Math.PI / 2, 0], true);
 
         // Add text
         const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';

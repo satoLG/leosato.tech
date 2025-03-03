@@ -13,6 +13,12 @@
         <link href="./css/main.css" rel="stylesheet">
     </head>
     <body>
+        <div id="loading-screen">
+            Loading...
+            <div id="progress-bar-container">
+                <div id="progress-bar"></div>
+            </div>
+        </div>
         <div id="headerinfo">
             <span class="nametag">LEONARDO SATO</span>
             <div class="link_icons">
@@ -36,15 +42,20 @@
                 </a>
             </div>    
         </div>
+        <div class="tabs">
+            <div class="tab" id="under-construction-tab">Under Construction</div>
+            <div class="tab" id="fire-camp-tab">Fire Camp</div>
+        </div>
         <div id="css"></div>
 		<div id="container"></div>
-
-        <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.20"></script>
         <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
 		<!-- Import maps polyfill -->
 		<!-- Remove this when import maps will be widely supported -->
 		<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
-
+        <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.20"></script>
+        <script>
+            var GUI = lil.GUI;
+        </script>
 		<script type="importmap">
 			{
 				"imports": {
