@@ -2,6 +2,8 @@ body {
     background: linear-gradient(#646464, #444343, #000000);		
     overflow: hidden;
     margin: 0;
+    font-family: courier !important;
+    font-weight: bold !important;
 }
 
 #container
@@ -44,6 +46,7 @@ a {
     grid-auto-flow: column;
     justify-content: space-around;
     align-items: center;
+    margin-top: 5px;
 }
 
 .tabs {
@@ -58,36 +61,26 @@ a {
 .tab {
     padding: 10px;
     border: 1px solid #ccc;
+    color: #ccc;
     margin-right: 5px;
 }
 .tab.active {
     background-color: #ddd;
+    color: black;
 }
 
 #loading-screen {
     position: absolute;
     width: 100%;
     height: 100%;
-    background-color: #172836;
+    background-color: #060e14;
     display: flex;
     justify-content: center;
     align-items: center;
     color: white;
     font-size: 2em;
     z-index: 10;
-}
-
-#loading-screen {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background-color: #172836;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-size: 2em;
-    z-index: 10;
+    flex-direction: column;
 }
 
 #progress-bar-container {
@@ -101,6 +94,6 @@ a {
 #progress-bar {
     width: 0;
     height: 20px;
-    background-color: #4caf50;
+    background-color: #16af1d;
     border-radius: 10px;
 }
