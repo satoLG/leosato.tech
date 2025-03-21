@@ -57,6 +57,7 @@
         <div class="tabs">
             <div class="tab" id="under-construction-tab">Under Construction</div>
             <div class="tab" id="fire-camp-tab">Fire Camp</div>
+            <div class="tab" id="test-lab-tab">Test Lab</div>
         </div>
         <div id="css"></div>
 		<div id="container"></div>
@@ -71,8 +72,8 @@
 		<script type="importmap">
 			{
 				"imports": {
-					"three": "https://unpkg.com/three@0.150.1/build/three.module.js",
-					"three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
+					"three": "https://unpkg.com/three@0.174.0/build/three.module.js",
+					"three/addons/": "https://app.unpkg.com/three@0.174.0/files/examples/jsm/"
 				}
 			}
 		</script>

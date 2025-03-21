@@ -284,13 +284,13 @@ class FireCampScene extends ThreejsScene {
     }
 
     createGround() {
-        const innerRadius = 20;
+        const innerRadius = 15;
         const outerRadius = 100;
     
         // Create a canvas and draw a gradient on it for the inner circle
         const innerCanvas = document.createElement('canvas');
-        innerCanvas.width = 512;
-        innerCanvas.height = 512;
+        innerCanvas.width = 312;
+        innerCanvas.height = 312;
         const innerContext = innerCanvas.getContext('2d');
     
         // Initial gradient colors for the inner circle
@@ -348,7 +348,7 @@ class FireCampScene extends ThreejsScene {
                 outerCanvas.height / 2,
                 outerRadius
             );
-            gradient.addColorStop(0.05, outerStartColor);
+            gradient.addColorStop(0.0001, outerStartColor);
             gradient.addColorStop(1, outerEndColor);
     
             outerContext.fillStyle = gradient;
