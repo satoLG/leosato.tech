@@ -18,8 +18,11 @@ class UnderConstructionScene extends ThreejsScene {
     populateScene() {
         // Scene setup
         const pmremGenerator = new THREE.PMREMGenerator( this.renderer );
-        this.scene.background = new THREE.Color('#1d374d');
+        this.scene.background = new THREE.Color('#172836');
         this.scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.04 ).texture;
+
+        // Add exponential fog
+        this.scene.fog = new THREE.FogExp2('#172836', 0.0042);
 
         // Add camera
         this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2000 );
@@ -35,8 +38,8 @@ class UnderConstructionScene extends ThreejsScene {
         this.controls.minPolarAngle = Math.PI / 3;
         this.controls.minAzimuthAngle = - Math.PI / 4; // radians
         this.controls.maxAzimuthAngle = Math.PI / 4; // radians
-        this.controls.maxDistance = 120;
-        this.controls.minDistance = 80;
+        this.controls.maxDistance = 100;
+        this.controls.minDistance = 50;
         this.controls.maxZoom = 3;
         this.controls.minZoom = 0.5;
         this.controls.rotateSpeed = 0.5;
@@ -91,6 +94,60 @@ class UnderConstructionScene extends ThreejsScene {
             `, 
             fontPath, [-15, 10, 0], 2.5, 0.5, 'orange', 'black'
         );
+
+        // Add debug GUI features
+        if (this.debugGui) {
+            setTimeout(() => {
+                this.addDebugGui();                
+            }, 2000);
+        }
+    }
+
+    addDebugGui() {
+        const gui = this.debugGui.gui;
+    
+        // Lights folder
+        const lightsFolder = gui.addFolder('Lights');
+        lightsFolder.add(this.scene.children[0].position, 'x', -100, 100).name('Light X');
+        lightsFolder.add(this.scene.children[0].position, 'y', -100, 100).name('Light Y');
+        lightsFolder.add(this.scene.children[0].position, 'z', -100, 100).name('Light Z');
+        lightsFolder.add(this.scene.children[0], 'intensity', 0, 10).name('Light Intensity');
+    
+        // Models folder
+        const modelsFolder = gui.addFolder('Models');
+        this.scene.children.forEach((child, index) => {
+            if (child.isMesh) {
+                const folder = modelsFolder.addFolder(`Model ${index + 1}`);
+                folder.add(child.position, 'x', -50, 50).name('Position X');
+                folder.add(child.position, 'y', -50, 50).name('Position Y');
+                folder.add(child.position, 'z', -50, 50).name('Position Z');
+                folder.add(child.rotation, 'x', -Math.PI, Math.PI).name('Rotation X');
+                folder.add(child.rotation, 'y', -Math.PI, Math.PI).name('Rotation Y');
+                folder.add(child.rotation, 'z', -Math.PI, Math.PI).name('Rotation Z');
+                folder.add(child.scale, 'x', 0.1, 10).name('Scale X');
+                folder.add(child.scale, 'y', 0.1, 10).name('Scale Y');
+                folder.add(child.scale, 'z', 0.1, 10).name('Scale Z');
+            }
+        });
+    
+        // Text folder
+        if (this.textMeshes.length > 0) {
+            const textFolder = gui.addFolder('Text');
+            this.textMeshes.forEach((textMesh, index) => {
+                const folder = textFolder.addFolder(`Text ${index + 1}`);
+                folder.add(textMesh.position, 'x', -50, 50).name('Position X');
+                folder.add(textMesh.position, 'y', -50, 50).name('Position Y');
+                folder.add(textMesh.position, 'z', -50, 50).name('Position Z');
+                folder.add(textMesh.rotation, 'x', -Math.PI, Math.PI).name('Rotation X');
+                folder.add(textMesh.rotation, 'y', -Math.PI, Math.PI).name('Rotation Y');
+                folder.add(textMesh.rotation, 'z', -Math.PI, Math.PI).name('Rotation Z');
+                folder.addColor({ color: textMesh.material.color.getHex() }, 'color')
+                    .name('Text Color')
+                    .onChange((value) => {
+                        textMesh.material.color.set(value);
+                    });
+            });
+        }
     }
 
     loadModel(loader, path, position, scale, rotation = [0, 0, 0], allowShadow = false) {
@@ -191,9 +248,9 @@ class UnderConstructionScene extends ThreejsScene {
         } );
         bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
         // set bulbLight position to the street_lamp position
-        bulbLight.position.set( 0, 25, -10 );
-        bulbLight.intensity = 2;
-        bulbLight.distance = 80;
+        bulbLight.position.set( 0, 15, -10 );
+        bulbLight.intensity = 3;
+        bulbLight.distance = 50;
         bulbLight.castShadow = true;
         bulbLight.shadowMapVisible = true;
         bulbLight.shadow.mapSize.width = 260;
@@ -203,7 +260,7 @@ class UnderConstructionScene extends ThreejsScene {
     }
 
     createGround() {
-        const groundGeometry = new THREE.CircleGeometry(100, 100);
+        const groundGeometry = new THREE.CircleGeometry(2000, 2000);
         groundGeometry.wireframe = true;
         const groundMaterial = new THREE.MeshPhongMaterial({color: new THREE.Color( 'gray' ), side: THREE.DoubleSide});
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
