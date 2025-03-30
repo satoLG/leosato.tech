@@ -15,6 +15,12 @@ function initScene(SceneClass) {
     currentScene.init(container);
 }
 
+function onWindowResize() {
+    if (currentScene && typeof currentScene.resize === 'function') {
+        currentScene.resize();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const underConstructionTab = document.getElementById('under-construction-tab');
     const fireCampTab = document.getElementById('fire-camp-tab');
@@ -41,4 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize with the first scene
     initScene(UnderConstructionScene);
     underConstructionTab.classList.add('active');
+
+    // Add resize event listener
+    window.addEventListener('resize', onWindowResize);
 });

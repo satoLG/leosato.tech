@@ -27,6 +27,17 @@ class ThreejsScene {
         this.animate();
     }
 
+    resize() {
+        // Check if the camera and renderer exist before resizing
+        if (this.camera) {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+        }
+        if (this.renderer) {
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    }
+
     populateScene() {
         throw new Error('You have to implement the method populateScene!');
     }
