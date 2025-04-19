@@ -13,6 +13,9 @@
         <link href="./css/main_1.css" rel="stylesheet">
     </head>
     <body>
+        <div id="collision-info" style="z-index: 2; position: absolute; top: 10px; left: 10px; color: white; background: rgba(0, 0, 0, 0.7); padding: 10px; border-radius: 5px; display: none;">
+            Collision with: <span id="object-name"></span>
+        </div>
         <div id="loading-screen">
             <span id="loading-desc">Loading...</span>
             <div id="progress-bar-container">

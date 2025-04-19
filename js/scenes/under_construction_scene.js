@@ -75,13 +75,13 @@ class UnderConstructionScene extends ThreejsScene {
         loader.setDRACOLoader( dracoLoader );
 
         // Load models
-        this.loadModel(loader, 'models/under_construction/road_cone.glb', [15,0,15], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/under_construction/road_cone.glb', [-15,0,15], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/under_construction/road_cone.glb', [-20.6,0,10.6], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/under_construction/road_cone.glb', [20.6,0,10.6], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/under_construction/road_cone.glb', [0,0,21.2], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/under_construction/road_cone.glb', [8.6,0,20.6], [12,12,12], [0,0,0], true);
-        this.loadModel(loader, 'models/under_construction/road_cone.glb', [-8.6,0,20.6], [12,12,12], [0,0,0], true);
+        // this.loadModel(loader, 'models/under_construction/road_cone.glb', [15,0,15], [12,12,12], [0,0,0], true);
+        // this.loadModel(loader, 'models/under_construction/road_cone.glb', [-15,0,15], [12,12,12], [0,0,0], true);
+        // this.loadModel(loader, 'models/under_construction/road_cone.glb', [-20.6,0,10.6], [12,12,12], [0,0,0], true);
+        // this.loadModel(loader, 'models/under_construction/road_cone.glb', [20.6,0,10.6], [12,12,12], [0,0,0], true);
+        // this.loadModel(loader, 'models/under_construction/road_cone.glb', [0,0,21.2], [12,12,12], [0,0,0], true);
+        // this.loadModel(loader, 'models/under_construction/road_cone.glb', [8.6,0,20.6], [12,12,12], [0,0,0], true);
+        // this.loadModel(loader, 'models/under_construction/road_cone.glb', [-8.6,0,20.6], [12,12,12], [0,0,0], true);
 
         this.loadModel(loader, 'models/under_construction/street_lamp.glb', [10, 0, -10], [6, 4, 6], [-Math.PI, Math.PI / 2, 0], true);
 
@@ -92,7 +92,7 @@ class UnderConstructionScene extends ThreejsScene {
             under
             construction
             `, 
-            fontPath, [-15, 10, 0], 2.5, 0.5, 'orange', 'black'
+            fontPath, [-15, 10, 0], 2.5, 0.5, 'white', 'black'
         );
 
         // Add debug GUI features

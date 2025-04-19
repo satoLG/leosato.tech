@@ -3,6 +3,7 @@ class DebugGui {
         this.gui = new GUI();
         this.gui.close();
         this.gui.add(this, 'close');
+        this.gui.show(false);
 
         window.addEventListener('keydown', (event) =>
             {

@@ -2,6 +2,27 @@ import * as THREE from 'three';
 
 class ThreejsScene {
     constructor(debugGui=null) {
+        this.sizes = {
+            width: window.innerWidth,
+            height: window.innerHeight
+        }
+
+        this.mouse = new THREE.Vector2();
+
+        this.mouseMoveHandler = (event) => {
+            this.mouse.x = event.clientX / this.sizes.width * 2 - 1
+            this.mouse.y = - (event.clientY / this.sizes.height) * 2 + 1
+            // console.log(this.mouse.x, this.mouse.y);
+        }
+
+        window.removeEventListener('mousemove', this.mouseMoveHandler);
+        window.addEventListener('mousemove', this.mouseMoveHandler);
+
+        this.raycaster = new THREE.Raycaster();
+        this.rayDirection = new THREE.Vector3(0, 0, 0);
+        this.rayDirection.normalize();
+        this.currentIntersect = null;
+
         this.scene = new THREE.Scene();
         this.renderer = null;
         this.camera = null;
