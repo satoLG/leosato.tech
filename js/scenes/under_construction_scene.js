@@ -26,7 +26,7 @@ class UnderConstructionScene extends ThreejsScene {
 
         // Add camera
         this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2000 );
-        this.camera.position.set( 1, 50, 50 );
+        this.camera.position.set( 0, 1, 80 );
 
         // Add controls
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
@@ -92,7 +92,7 @@ class UnderConstructionScene extends ThreejsScene {
             under
             construction
             `, 
-            fontPath, [-15, 10, 0], 2.5, 0.5, 'white', 'black'
+            fontPath, [-20, 10, 0], 2.5, 0.5, 'white', 'black'
         );
 
         // Add debug GUI features
