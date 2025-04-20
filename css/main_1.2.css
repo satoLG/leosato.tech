@@ -59,6 +59,26 @@ a {
     left: 10px;
     z-index: 1;
     overflow-x: scroll;
+
+    /* Custom scrollbar styles */
+    scrollbar-width: thin; /* For Firefox */
+    scrollbar-color: #979797 #c2111100; /* No background for scrollbar */
+
+    /* For WebKit browsers (Chrome, Edge, Safari) */
+    &::-webkit-scrollbar {
+        width: 5px; /* Thin scrollbar */
+        height: 5px; /* Thin horizontal scrollbar */
+    }
+    &::-webkit-scrollbar-thumb {
+        background-color: #ccc; /* Color of the scrollbar thumb */
+        border-radius: 10px; /* Rounded scrollbar thumb */
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent; /* No background for the scrollbar track */
+    }
+    &::-webkit-scrollbar-button {
+        display: none; /* Hide the arrows on the sides */
+    }
 }
 .tab {
     padding: 10px;
