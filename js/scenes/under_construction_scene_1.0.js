@@ -281,7 +281,7 @@ class UnderConstructionScene extends ThreejsScene {
             });
         
             // Start smoothly following the text's Y position after 2 seconds
-            if (elapsedTime > 4) {
+            if (elapsedTime > 5.2) {
                 const textYPosition = this.textMeshes[0].position.y;
 
                 // Calculate a dynamic interpolation factor that starts small and grows
