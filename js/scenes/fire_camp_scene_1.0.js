@@ -60,7 +60,10 @@ class FireCampScene extends ThreejsScene {
         const loadingManager = new THREE.LoadingManager(
             () => {
                 // On load complete
-                document.getElementById('loading-screen').style.display = 'none';
+                setTimeout(() => {
+                    document.getElementById('loading-screen').style.display = 'none';
+                    document.getElementById('progress-bar').style.width = '0%';
+                }, 500);
             },
             (itemUrl, itemsLoaded, itemsTotal) => {
                 // On progress
