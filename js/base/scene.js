@@ -77,11 +77,21 @@ class ThreejsScene {
     destroy() {
         if (this.debugGui) this.debugGui.close();
 
+        console.log('Disposing scene...');
+        // Remove event listeners
+        window.removeEventListener('mousemove', this.mouseMoveHandler);
+
         // Dispose of scene resources
         this.scene.traverse((object) => {
             if (!object.isMesh) return;
 
+            console.log('Disposing geometry: ', object.geometry);
             object.geometry.dispose();
+            
+            // Dispose of textures if they exist
+            if (object.material.map) {
+                object.material.map.dispose();
+            }
 
             if (object.material.isMaterial) {
                 this.disposeMaterial(object.material);
@@ -91,6 +101,7 @@ class ThreejsScene {
             }
         });
 
+        console.log('Disposiing renderer...');
         this.renderer.dispose();
     }
 
@@ -101,6 +112,7 @@ class ThreejsScene {
 
             const value = material[key];
             if (value && typeof value.dispose === 'function') {
+                console.log('Disposing material: ', value);
                 value.dispose();
             }
         }

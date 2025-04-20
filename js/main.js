@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keydown', (event) => {
         if(event.key == 't'|| event.key == 'T') {
             let tabs = document.querySelector('.tabs');
-            tabs.style.display = (tabs.style.display === 'block') ? 'none' : 'block';
+            tabs.style.display = (tabs.style.display === '') ? 'none' : '';
         }
     })
 

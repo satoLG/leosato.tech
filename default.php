@@ -10,7 +10,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
-        <link href="./css/main_1.css" rel="stylesheet">
+        <link href="./css/main_1.1.css" rel="stylesheet">
     </head>
     <body>
         <div id="collision-info" style="z-index: 2; position: absolute; top: 10px; left: 10px; color: white; background: rgba(0, 0, 0, 0.7); padding: 10px; border-radius: 5px; display: none;">
@@ -61,6 +61,8 @@
             <div class="tab" id="under-construction-tab">Under Construction</div>
             <div class="tab" id="fire-camp-tab">Fire Camp</div>
             <div class="tab" id="test-lab-tab">Test Lab</div>
+            <div class="tab" id="test-lab-tab2">Test Lab 2</div>
+            <div class="tab" id="test-lab-tab3">Test Lab 3</div>
         </div>
         <div id="css"></div>
 		<div id="container"></div>

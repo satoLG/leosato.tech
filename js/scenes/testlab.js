@@ -79,7 +79,7 @@ class TestLabScene extends ThreejsScene {
         super.init(container);
 
         // Initialize and play background music
-        this.backgroundMusic = new Audio('sounds/background/C418 - Haggstrom - Minecraft Volume Alpha.mp3');
+        this.backgroundMusic = new Audio('sounds/background/mc.mp3');
         this.backgroundMusic.loop = true; // Loop the music
         this.backgroundMusic.volume = 0.5; // Set volume (adjust as needed)
         this.backgroundMusic.play().catch((error) => {
