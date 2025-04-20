@@ -5,11 +5,10 @@ class DebugGui {
         this.gui.add(this, 'close');
         this.gui.show(false);
 
-        window.addEventListener('keydown', (event) =>
-            {
-                if(event.key == 'h')
-                    if (this.gui) this.gui.show(this.gui._hidden)
-            })
+        window.addEventListener('keydown', (event) => {
+            if(event.key == 'c' || event.key == 'C')
+                if (this.gui) this.gui.show(this.gui._hidden)
+        })
     }
     
     close() {

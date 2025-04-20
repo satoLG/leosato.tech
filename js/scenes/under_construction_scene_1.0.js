@@ -26,23 +26,23 @@ class UnderConstructionScene extends ThreejsScene {
 
         // Add camera
         this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2000 );
-        this.camera.position.set( 0, 1, 80 );
+        this.camera.position.set( 0, 0.2, 80 );
 
         // Add controls
-        this.controls = new OrbitControls( this.camera, this.renderer.domElement );
-        this.controls.target.set( 0, 0.5, 0 );
-        this.controls.update();
-        this.controls.enablePan = false;
-        this.controls.enableDamping = true;
-        this.controls.maxPolarAngle = Math.PI / 2;
-        this.controls.minPolarAngle = Math.PI / 3;
-        this.controls.minAzimuthAngle = - Math.PI / 4; // radians
-        this.controls.maxAzimuthAngle = Math.PI / 4; // radians
-        this.controls.maxDistance = 100;
-        this.controls.minDistance = 50;
-        this.controls.maxZoom = 3;
-        this.controls.minZoom = 0.5;
-        this.controls.rotateSpeed = 0.5;
+        // this.controls = new OrbitControls( this.camera, this.renderer.domElement );
+        // this.controls.target.set( 0, 0.5, 0 );
+        // this.controls.update();
+        // this.controls.enablePan = false;
+        // this.controls.enableDamping = true;
+        // this.controls.maxPolarAngle = Math.PI / 2;
+        // this.controls.minPolarAngle = Math.PI / 3;
+        // this.controls.minAzimuthAngle = - Math.PI / 4; // radians
+        // this.controls.maxAzimuthAngle = Math.PI / 4; // radians
+        // this.controls.maxDistance = 100;
+        // this.controls.minDistance = 50;
+        // this.controls.maxZoom = 3;
+        // this.controls.minZoom = 0.5;
+        // this.controls.rotateSpeed = 0.5;
 
         // Add lights
         this.createLights();
@@ -271,7 +271,7 @@ class UnderConstructionScene extends ThreejsScene {
     }
 
     customAnimate() {
-        this.controls.update();
+        // this.controls.update();
 
         const elapsedTime = this.clock.getElapsedTime();
 
@@ -279,6 +279,18 @@ class UnderConstructionScene extends ThreejsScene {
             this.textMeshes.forEach(textMesh => {
                 textMesh.position.y = Math.sin(elapsedTime) * 2 + 10;
             });
+        
+            // Start smoothly following the text's Y position after 2 seconds
+            if (elapsedTime > 4) {
+                const textYPosition = this.textMeshes[0].position.y;
+
+                // Calculate a dynamic interpolation factor that starts small and grows
+                const followTime = elapsedTime - 2; // Time since following started
+                const interpolationFactor = Math.min(followTime * 0.002, 0.1); // Gradually increase to a max of 0.1
+
+                // Smoothly interpolate the camera's Y position
+                this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, textYPosition, interpolationFactor);
+            } 
         }
 
         if (this.animationMixers.length > 0) {

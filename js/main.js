@@ -1,5 +1,5 @@
 import DebugGui from './base/debug_gui.js';
-import UnderConstructionScene from './scenes/under_construction_scene.js';
+import UnderConstructionScene from './scenes/under_construction_scene_1.0.js';
 import FireCampScene from './scenes/fire_camp_scene.js';
 import TestLabScene from './scenes/testlab.js';
 
@@ -43,6 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         testLabTab.classList.add('active');
     });
+
+    window.addEventListener('keydown', (event) => {
+        if(event.key == 't'|| event.key == 'T') {
+            let tabs = document.querySelector('.tabs');
+            tabs.style.display = (tabs.style.display === 'block') ? 'none' : 'block';
+        }
+    })
 
     // Initialize with the first scene
     initScene(UnderConstructionScene);

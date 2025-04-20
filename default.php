@@ -57,7 +57,7 @@
                 </a>
             </div>    
         </div>
-        <div class="tabs">
+        <div class="tabs" style="display: none;">
             <div class="tab" id="under-construction-tab">Under Construction</div>
             <div class="tab" id="fire-camp-tab">Fire Camp</div>
             <div class="tab" id="test-lab-tab">Test Lab</div>

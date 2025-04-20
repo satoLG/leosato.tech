@@ -145,7 +145,7 @@ class TestLabScene extends ThreejsScene {
         this.scene.add(newCube);
     
         // Add a bounding box for the cube
-        newCube.boundingBox = new THREE.Box3().setFromObject(newCube);
+        // newCube.boundingBox = new THREE.Box3().setFromObject(newCube);
     
         // Add a helper for debugging
         // const cubeHelper = new THREE.BoxHelper(newCube, 0xff0000); // Red for the new cube
@@ -213,13 +213,10 @@ class TestLabScene extends ThreejsScene {
 
         this.geometries.push(this.plane); // Add the plane to the geometries array
 
-        this.plane.boundingBox = new THREE.Box3().setFromObject(this.plane);
+        // this.plane.boundingBox = new THREE.Box3().setFromObject(this.plane);
 
-        this.planeHelper = new THREE.BoxHelper(this.plane, 0xffff00); // Yellow for the plane
-        this.scene.add(this.planeHelper);
-
-        // Add a bounding box helper for the character (if loaded later)
-        this.characterHelper = null; // 
+        // this.planeHelper = new THREE.BoxHelper(this.plane, 0xffff00); // Yellow for the plane
+        // this.scene.add(this.planeHelper);
 
         // Add a directional light for global illumination
         this.directionalLight = new THREE.DirectionalLight(0xffffff, 0.5); // White light
@@ -275,7 +272,7 @@ class TestLabScene extends ThreejsScene {
             // console.log('Key pressed:', event.key, 'IS JUMPING ?', this.isJumping); // Debugging line
             if (event.key === ' ' && !this.isJumping) {
                 // console.log('YES Jumping!'); // Debugging line
-                this.characterSpeed.y = 0.15; // Initial upward velocity
+                this.characterSpeed.y = 0.85; // Initial upward velocity
                 this.isJumping = true; // Set jumping flag
             }
         });
@@ -294,7 +291,7 @@ class TestLabScene extends ThreejsScene {
         setTimeout(() => {
             if (this.debugGui.gui) this.initDebugGui();
             this.cameraTransitioning = true; // Start camera transition
-        }, 5000); // Adjust the delay as needed
+        }, 3000); // Adjust the delay as needed
     }
 
     loadModel(loader, path, position, scale, rotation = [0, 0, 0], allowShadow = false) {
@@ -311,16 +308,6 @@ class TestLabScene extends ThreejsScene {
             model.rotation.set(...rotation);
             this.scene.add(model);
             this.objectModels.push(model);
-    
-            // Create a static bounding box for the character
-            if (!this.character) {
-                this.character = model;
-                const boxSize = new THREE.Vector3(0.5, 2, 0.5); // Adjust X and Z dimensions to make it smaller horizontally
-                this.character.staticBoundingBox = new THREE.Box3().setFromCenterAndSize(
-                    this.character.position.clone(),
-                    boxSize
-                );
-            }
     
             // Store animations if available
             if (gltf.animations.length > 0) {
@@ -363,84 +350,44 @@ class TestLabScene extends ThreejsScene {
         if (!this.character) return; // Ensure the character is loaded
     
         if (this.noKeysPressed) {
-            // console.log('NO KEYS PRESSED!'); // Debugging line
-            this.characterSpeed.x = 0; // Reset speed if no keys are pressed
-            this.characterSpeed.z = 0; // Reset speed if no keys are pressed
-        }
-        else{
-            // console.log('KEYS PRESSED!'); // Debugging line
+            // Reset speed if no keys are pressed
+            this.characterSpeed.x = 0;
+            this.characterSpeed.z = 0;
+        } else {
+            // Set movement speed
             this.characterSpeed.x = 0.1; // Fixed movement speed per frame
             this.characterSpeed.z = 0.1; // Fixed movement speed per frame
-        
+    
             // Increase speed if Shift is pressed
             if (this.keys['Shift'] || this.keys['SHIFT']) {
-                this.characterSpeed.x = 0.25; // Adjust this value for the desired sprint speed
-                this.characterSpeed.z = 0.25; // Adjust this value for the desired sprint speed
+                this.characterSpeed.x = 0.25; // Sprint speed
+                this.characterSpeed.z = 0.25; // Sprint speed
             }
         }
     
         // Reset the direction vector to prevent accumulation of values
         const direction = new THREE.Vector3(0, 0, 0);
     
-        // Get the camera's forward and right vectors
-        const forward = new THREE.Vector3();
-        // this.camera.getWorldDirection(forward); // Get the camera's forward direction
-        forward.y = 0; // Ignore vertical movement
-        forward.normalize();
-    
-        const right = new THREE.Vector3();
-        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)); // Calculate the right vector
-        right.normalize();
+        // Define fixed global directions
+        const forward = new THREE.Vector3(0, 0, -1); // Forward along negative Z-axis
+        const right = new THREE.Vector3(1, 0, 0);    // Right along positive X-axis
     
         // Check for movement keys and calculate the movement direction
         if (this.keys['w'] || this.keys['W']) direction.add(forward); // Forward
         if (this.keys['s'] || this.keys['S']) direction.sub(forward); // Backward
-        // if (this.keys['a'] || this.keys['A']) direction.sub(right);   // Left
-        // if (this.keys['d'] || this.keys['D']) direction.add(right);   // Right
+        if (this.keys['a'] || this.keys['A']) direction.sub(right);   // Left
+        if (this.keys['d'] || this.keys['D']) direction.add(right);   // Right
     
         if (direction.length() > 0) {
             direction.normalize(); // Normalize to prevent faster diagonal movement
             direction.multiplyScalar(this.characterSpeed.x); // Scale by fixed speed
     
-            // Set cameraTransitioning to true when the character starts moving
-            if (!this.cameraTransitioning) {
-                this.cameraTransitioning = true;
-            }
+            // Rotate the character to face the movement direction
+            const targetRotation = Math.atan2(-direction.x, -direction.z); // Calculate the target Y rotation
+            this.character.rotation.y = targetRotation; // Set the character's Y rotation
     
-            // Cast rays in the movement direction to check for horizontal collisions
-            const rayDirection = direction.clone().normalize();
-            const horizontalCollision = this.checkRaycastCollisions(rayDirection);
-    
-            if (!horizontalCollision) {
-                // If no horizontal collision and the character is grounded, update the position
-                this.character.position.add(direction);
-            }
-    
-            // If a collision is detected, display the collision info
-            if (horizontalCollision) {
-                const collisionInfo = horizontalCollision;
-                const { object, position } = collisionInfo;
-    
-                // Display the collision info in a div
-                const collisionDiv = document.getElementById('collision-info');
-                collisionDiv.textContent = `Collided with: ${object.name || 'Unknown Object'}`;
-                collisionDiv.style.display = 'block';
-                collisionDiv.style.position = 'absolute';
-    
-                // Convert 3D position to 2D screen position
-                const screenPosition = position.clone().project(this.camera);
-                const x = (screenPosition.x * 0.5 + 0.5) * window.innerWidth;
-                const y = (-screenPosition.y * 0.5 + 0.5) * window.innerHeight;
-    
-                // Position the div at the collision point
-                collisionDiv.style.left = `${x}px`;
-                collisionDiv.style.top = `${y}px`;
-    
-                // Hide the div after a short delay
-                setTimeout(() => {
-                    collisionDiv.style.display = 'none';
-                }, 500); // Adjust the delay as needed
-            }
+            // Move the character in the given direction
+            this.character.position.add(direction);
     
             // Transition to the walking animation
             if (this.character.animations) {
@@ -475,11 +422,6 @@ class TestLabScene extends ThreejsScene {
                     idleAction.reset().fadeIn(0.2).play(); // Smoothly fade in the idle animation
                 }
             }
-    
-            // Set cameraTransitioning to false when the character stops moving
-            if (this.cameraTransitioning) {
-                this.cameraTransitioning = false;
-            }
         }
     }
 
@@ -493,21 +435,21 @@ class TestLabScene extends ThreejsScene {
         this.characterSpeed.y += gravity;
     
         // Cast a downward ray to check for collisions with the ground or objects
-        const downwardRay = new THREE.Vector3(0, -1, 0); // Downward direction
+        const downwardRay = new THREE.Vector3(0, -0.5, 0); // Downward direction
         const collisionInfo = this.checkRaycastCollisions(downwardRay, true);
     
         if (collisionInfo) {
-            const { object, position } = collisionInfo;
+            const { position } = collisionInfo;
     
             // Add a small buffer to prevent jittering
-            const buffer = 0.51;
-            console.log('collision', this.character.position.y, position.y, this.characterSpeed.y)
+            const buffer = -0.01;
+    
             // Check if the character is slightly above the collision point
             if (this.character.position.y - position.y > buffer) {
                 // Snap the character to the top of the collided object
                 this.character.position.y = position.y;
-                this.characterSpeed.y = 0; // Stop vertical movement
-                this.isJumping = false; // Reset jumping flag
+                this.characterSpeed.y = Math.max(this.characterSpeed.y, 0); // Stop downward movement but allow upward movement
+                this.isJumping = false; // Reset jumping flag when grounded
             } else {
                 // Allow the character to settle naturally
                 this.character.position.y += this.characterSpeed.y;
@@ -518,7 +460,7 @@ class TestLabScene extends ThreejsScene {
         }
     }
 
-    checkRaycastCollisions(direction) {
+    checkRaycastCollisions(direction, vertical = false) {
         const raycaster = new THREE.Raycaster();
         const rayOrigin = this.character.position.clone();
     
@@ -552,10 +494,16 @@ class TestLabScene extends ThreejsScene {
             const intersects = raycaster.intersectObjects([...this.geometries], true);
     
             // If any ray detects a collision, store the collision info
-            if (intersects.length > 0 && intersects[0].distance < 0.2) {
+            if (intersects.length > 0 && intersects[0].distance < 1) {
+                const collisionPoint = intersects[0].point; // Collision point in world coordinates
+
                 collisionInfo = {
                     object: intersects[0].object, // The object collided with
-                    position: intersects[0].point // The position of the collision
+                    position: new THREE.Vector3(
+                        parseFloat(collisionPoint.x.toFixed(3)),
+                        parseFloat(collisionPoint.y.toFixed(3)),
+                        parseFloat(collisionPoint.z.toFixed(3))
+                    ) // The position of the collision
                 };
             }
         });
@@ -612,26 +560,6 @@ class TestLabScene extends ThreejsScene {
         // console.log(this.mouse)
         this.controls.update();
 
-        // Update bounding boxes for all objects in the geometries array
-        this.geometries.forEach((object) => {
-            if (object && object.boundingBox) {
-                object.boundingBox.setFromObject(object);
-            }
-        });
-
-        if (this.plane && this.plane.boundingBox) {
-            this.plane.boundingBox.setFromObject(this.plane);
-            this.planeHelper.update(); // Update the visual helper
-        }
-
-        // Update the character's static bounding box
-        if (this.character && this.character.staticBoundingBox) {
-            this.character.staticBoundingBox.setFromCenterAndSize(
-                this.character.position.clone(),
-                new THREE.Vector3(0.5, 2, 0.5) // Adjust X and Z dimensions to make it smaller horizontally
-            );
-        }
-
         // Update cube position based on WASD input
         this.updateCharacterPosition();
 
@@ -644,9 +572,9 @@ class TestLabScene extends ThreejsScene {
         // }
 
         this.character = this.objectModels[0]; // Assuming the first model is the this.character
-        // Update OrbitControls to target the cube
+        // Update OrbitControls to target the character
         if (this.character) {
-            this.controls.target.copy(this.character.position); // Set the controls' target to the cube's position
+            this.controls.target.copy(this.character.position); // Set the controls' target to the character's position
             this.controls.update(); // Update the controls to reflect the new target
         }
 
