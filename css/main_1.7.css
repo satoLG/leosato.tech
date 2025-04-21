@@ -59,6 +59,25 @@ a {
     z-index: 1;
     overflow-x: scroll;
 
+    /* Remove blue overlay on mobile (WebKit browsers) */
+    -webkit-tap-highlight-color: transparent;
+
+    /* Remove focus outline */
+    outline: none;
+
+    /* Remove active state styles */
+    -webkit-touch-callout: none; /* Disable callout menu on long press */
+    -webkit-user-select: none;  /* Disable text selection on iOS */
+    -moz-user-select: none;     /* Disable text selection on Firefox */
+    -ms-user-select: none;      /* Disable text selection on IE/Edge */
+    user-select: none;          /* Disable text selection on modern browsers */
+
+    /* Remove default active styles */
+    &:active {
+        background: none;
+        color: inherit;
+    }
+
     /* Custom scrollbar styles */
     scrollbar-width: thin; /* For Firefox */
 
@@ -99,8 +118,27 @@ a {
     white-space: nowrap;
     text-align: center;
 
-    /* Remove blue overlay on mobile */
+    /* Prevent text selection */
+    user-select: none;
+
+    /* Remove blue overlay on mobile (WebKit browsers) */
     -webkit-tap-highlight-color: transparent;
+
+    /* Remove focus outline */
+    outline: none;
+
+    /* Remove active state styles */
+    -webkit-touch-callout: none; /* Disable callout menu on long press */
+    -webkit-user-select: none;  /* Disable text selection on iOS */
+    -moz-user-select: none;     /* Disable text selection on Firefox */
+    -ms-user-select: none;      /* Disable text selection on IE/Edge */
+    user-select: none;          /* Disable text selection on modern browsers */
+
+    /* Remove default active styles */
+    &:active {
+        background: none;
+        color: inherit;
+    }
 }
 .tab.active {
     background-color: #ddd;
