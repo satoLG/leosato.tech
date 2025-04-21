@@ -90,7 +90,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main.js">
+        <script type="module" src="./js/main_1.0.js">
         </script>
     </body>
 </html>
