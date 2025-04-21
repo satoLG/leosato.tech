@@ -13,6 +13,10 @@ class UnderConstructionScene extends ThreejsScene {
         this.textMeshes = [];
         this.animationMixers = [];
         this.controls = null;
+        this.active3d = false; // Set to true for 3D mode, false for 2D mode
+        this.active3dEvent = (event) => {
+            this.active3d = !this.active3d;
+        }
     }
 
     populateScene() {
@@ -26,7 +30,7 @@ class UnderConstructionScene extends ThreejsScene {
 
         // Add camera
         this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2000 );
-        this.camera.position.set( 0, 0.2, 80 );
+        this.camera.position.set( 0, 0.2, 70 );
 
         // Add controls
         // this.controls = new OrbitControls( this.camera, this.renderer.domElement );
@@ -58,7 +62,7 @@ class UnderConstructionScene extends ThreejsScene {
                 setTimeout(() => {
                     document.getElementById('loading-screen').style.display = 'none';
                     document.getElementById('progress-bar').style.width = '0%';
-                }, 500);
+                }, 1000);
             },
             (itemUrl, itemsLoaded, itemsTotal) => {
                 // On progress
@@ -86,7 +90,7 @@ class UnderConstructionScene extends ThreejsScene {
         // this.loadModel(loader, 'models/under_construction/road_cone.glb', [8.6,0,20.6], [12,12,12], [0,0,0], true);
         // this.loadModel(loader, 'models/under_construction/road_cone.glb', [-8.6,0,20.6], [12,12,12], [0,0,0], true);
 
-        this.loadModel(loader, 'models/under_construction/street_lamp.glb', [10, 0, -10], [6, 4, 6], [-Math.PI, Math.PI / 2, 0], true);
+        this.loadModel(loader, 'models/under_construction/street_lamp.glb', [15, 0, -10], [6, 4, 6], [-Math.PI, Math.PI / 2, 0], true);
 
         // Add text
         const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
@@ -95,7 +99,7 @@ class UnderConstructionScene extends ThreejsScene {
             under
             construction
             `, 
-            fontPath, [-20, 10, 0], 2.5, 0.5, 'white', 'black'
+            fontPath, [-20, 8, 0], 2.5, 0.5, 'white'
         );
 
         // Add debug GUI features
@@ -104,6 +108,8 @@ class UnderConstructionScene extends ThreejsScene {
                 this.addDebugGui();                
             }, 2000);
         }
+
+        window.addEventListener('click', this.active3dEvent);
     }
 
     addDebugGui() {
@@ -251,7 +257,7 @@ class UnderConstructionScene extends ThreejsScene {
         } );
         bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
         // set bulbLight position to the street_lamp position
-        bulbLight.position.set( 0, 15, -10 );
+        bulbLight.position.set( 5, 15, -10 );
         bulbLight.intensity = 3;
         bulbLight.distance = 50;
         bulbLight.castShadow = true;
@@ -279,21 +285,28 @@ class UnderConstructionScene extends ThreejsScene {
         const elapsedTime = this.clock.getElapsedTime();
 
         if (this.textMeshes.length > 0) {
-            this.textMeshes.forEach(textMesh => {
-                textMesh.position.y = Math.sin(elapsedTime) * 2 + 10;
-            });
-        
-            // Start smoothly following the text's Y position after 2 seconds
-            if (elapsedTime > 5.2) {
+            if (this.active3d) {
+                this.textMeshes.forEach(textMesh => {
+                    // Smoothly interpolate the current Y position to the target Y position
+                    textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 12, 0.05);
+                });
+            
                 const textYPosition = this.textMeshes[0].position.y;
-
-                // Calculate a dynamic interpolation factor that starts small and grows
-                const followTime = elapsedTime - 2; // Time since following started
-                const interpolationFactor = Math.min(followTime * 0.002, 0.1); // Gradually increase to a max of 0.1
-
                 // Smoothly interpolate the camera's Y position
-                this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, textYPosition, interpolationFactor);
-            } 
+                this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, textYPosition, 0.05);
+                this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, -40, 0.05);
+                this.camera.rotation.y = THREE.MathUtils.lerp(this.camera.rotation.y, -0.5, 0.05);
+            }
+            else {
+                this.textMeshes.forEach(textMesh => {
+                    // Smoothly interpolate the current Y position to the target Y position
+                    textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 8, 0.05);
+                });
+                // Smoothly interpolate the camera's Y position
+                this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, 0.2, 0.05);
+                this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, 0, 0.05);
+                this.camera.rotation.y = THREE.MathUtils.lerp(this.camera.rotation.y, 0, 0.05);
+            }
         }
 
         if (this.animationMixers.length > 0) {
