@@ -98,6 +98,9 @@ a {
     margin-right: 5px;
     white-space: nowrap;
     text-align: center;
+
+    /* Remove blue overlay on mobile */
+    -webkit-tap-highlight-color: transparent;
 }
 .tab.active {
     background-color: #ddd;
