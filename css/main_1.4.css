@@ -53,16 +53,26 @@ a {
     width: calc(100% - 10px);
     display: flex;
     cursor: pointer;
-    margin-bottom: 10px;
     position: absolute;
-    bottom: 0;
-    left: 10px;
+
     z-index: 1;
     overflow-x: scroll;
 
     /* Custom scrollbar styles */
     scrollbar-width: thin; /* For Firefox */
-    scrollbar-color: #979797 #c2111100; /* No background for scrollbar */
+
+    &#scenes {
+        scrollbar-color: #979797 #c2111100;
+        margin-bottom: 10px;
+        bottom: 0;
+        left: 10px;
+    }
+    &#actions {
+        scrollbar-color: transparent transparent;
+        margin-top: 10px;
+        top: 100px;
+        left: 20px;
+    }
 
     /* For WebKit browsers (Chrome, Edge, Safari) */
     &::-webkit-scrollbar {
@@ -86,10 +96,15 @@ a {
     color: #ccc;
     margin-right: 5px;
     white-space: nowrap;
+    text-align: center;
 }
 .tab.active {
     background-color: #ddd;
     color: black;
+}
+
+#actions .tab {
+    width: 43px;
 }
 
 #loading-screen {

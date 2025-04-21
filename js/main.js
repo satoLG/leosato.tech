@@ -28,28 +28,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     underConstructionTab.addEventListener('click', () => {
         initScene(UnderConstructionScene);
-        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('#scenes .tab').forEach(tab => tab.classList.remove('active'));
         underConstructionTab.classList.add('active');
     });
 
     fireCampTab.addEventListener('click', () => {
         initScene(FireCampScene);
-        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('#scenes .tab').forEach(tab => tab.classList.remove('active'));
         fireCampTab.classList.add('active');
     });
 
     testLabTab.addEventListener('click', () => {
         initScene(TestLabScene);
-        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('#scenes .tab').forEach(tab => tab.classList.remove('active'));
         testLabTab.classList.add('active');
+    });
+
+    const mode2dTab = document.getElementById('2d-mode');
+    const mode3dTab = document.getElementById('3d-mode');
+
+    mode2dTab.addEventListener('click', () => {
+        document.querySelectorAll('#actions .tab').forEach(tab => tab.classList.remove('active'));
+        mode2dTab.classList.add('active');
+    });
+
+    mode3dTab.addEventListener('click', () => {
+        document.querySelectorAll('#actions .tab').forEach(tab => tab.classList.remove('active'));
+        mode3dTab.classList.add('active');
     });
 
     window.addEventListener('keydown', (event) => {
         if(event.key == 't'|| event.key == 'T') {
-            let tabs = document.querySelector('.tabs');
+            let tabs = document.querySelector('#scenes.tabs');
             tabs.style.display = (tabs.style.display === '') ? 'none' : '';
         }
     })
+
+    mode2dTab.classList.add('active');
 
     // Initialize with the first scene
     initScene(UnderConstructionScene);

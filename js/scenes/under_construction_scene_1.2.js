@@ -14,9 +14,6 @@ class UnderConstructionScene extends ThreejsScene {
         this.animationMixers = [];
         this.controls = null;
         this.active3d = false; // Set to true for 3D mode, false for 2D mode
-        this.active3dEvent = (event) => {
-            this.active3d = !this.active3d;
-        }
     }
 
     populateScene() {
@@ -108,8 +105,6 @@ class UnderConstructionScene extends ThreejsScene {
                 this.addDebugGui();                
             }, 2000);
         }
-
-        window.addEventListener('click', this.active3dEvent);
     }
 
     addDebugGui() {
@@ -283,6 +278,8 @@ class UnderConstructionScene extends ThreejsScene {
         // this.controls.update();
 
         const elapsedTime = this.clock.getElapsedTime();
+
+        this.active3d = document.getElementById('3d-mode').classList.contains('active');
 
         if (this.textMeshes.length > 0) {
             if (this.active3d) {
