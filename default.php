@@ -88,7 +88,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main_1.0.js">
+        <script type="module" src="./js/main_1.1.js">
         </script>
     </body>
 </html>
