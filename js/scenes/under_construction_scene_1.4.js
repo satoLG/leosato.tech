@@ -14,6 +14,7 @@ class UnderConstructionScene extends ThreejsScene {
         this.animationMixers = [];
         this.controls = null;
         this.active3d = false; // Set to true for 3D mode, false for 2D mode
+        this.mode3dTransition = false; // Flag to indicate if the transition to 3D mode is in progress
     }
 
     populateScene() {
@@ -30,20 +31,23 @@ class UnderConstructionScene extends ThreejsScene {
         this.camera.position.set( 0, 0.2, 70 );
 
         // Add controls
-        // this.controls = new OrbitControls( this.camera, this.renderer.domElement );
-        // this.controls.target.set( 0, 0.5, 0 );
-        // this.controls.update();
-        // this.controls.enablePan = false;
-        // this.controls.enableDamping = true;
-        // this.controls.maxPolarAngle = Math.PI / 2;
-        // this.controls.minPolarAngle = Math.PI / 3;
-        // this.controls.minAzimuthAngle = - Math.PI / 4; // radians
-        // this.controls.maxAzimuthAngle = Math.PI / 4; // radians
-        // this.controls.maxDistance = 100;
-        // this.controls.minDistance = 50;
-        // this.controls.maxZoom = 3;
-        // this.controls.minZoom = 0.5;
-        // this.controls.rotateSpeed = 0.5;
+        this.controls = new OrbitControls( this.camera, this.renderer.domElement );
+        this.controls.target.set( 0, 0, 0 );
+        this.controls.enabled = false;
+        this.controls.enablePan = false;
+        this.controls.enableDamping = true;
+        this.controls.maxPolarAngle = Math.PI / 2;
+        this.controls.minPolarAngle = Math.PI / 3;
+        // this.controls.minPolarAngle = 0; // Default value, unrestricted upward view
+        // this.controls.maxPolarAngle = Math.PI; // Default value, unrestricted downward view        
+        this.controls.minAzimuthAngle = - Math.PI / 4; // radians
+        this.controls.maxAzimuthAngle = Math.PI / 4; // radians
+        this.controls.maxDistance = 100;
+        this.controls.minDistance = 50;
+        this.controls.maxZoom = 3;
+        this.controls.minZoom = 0.5;
+        this.controls.rotateSpeed = 0.5;
+        this.controls.update();
 
         // Add lights
         this.createLights();
@@ -274,35 +278,88 @@ class UnderConstructionScene extends ThreejsScene {
         ground.receiveShadow = true;
     }
 
-    customAnimate() {
-        // this.controls.update();
+    resetControls() {
+        // Smoothly interpolate the camera position
+        this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, 0, 0.1);
+        this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, 0.2, 0.1);
+        this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, 70, 0.1);
+    
+        // Smoothly interpolate the camera rotation
+        this.camera.rotation.x = THREE.MathUtils.lerp(this.camera.rotation.x, 0, 0.1);
+        this.camera.rotation.y = THREE.MathUtils.lerp(this.camera.rotation.y, 0, 0.1);
+        this.camera.rotation.z = THREE.MathUtils.lerp(this.camera.rotation.z, 0, 0.1);
+    
+        // Smoothly interpolate the controls target
+        this.controls.target.x = THREE.MathUtils.lerp(this.controls.target.x, 0, 0.1);
+        this.controls.target.y = THREE.MathUtils.lerp(this.controls.target.y, 0, 0.1);
+        this.controls.target.z = THREE.MathUtils.lerp(this.controls.target.z, 0, 0.1);
+    
+        // Smoothly interpolate the zoom
+        this.camera.zoom = THREE.MathUtils.lerp(this.camera.zoom, 1, 0.1);
+        this.camera.updateProjectionMatrix(); // Ensure the zoom is applied
+    
+        // Update the controls to apply the changes
+        this.controls.update();
+    }
 
+    customAnimate() {
         const elapsedTime = this.clock.getElapsedTime();
 
         this.active3d = document.getElementById('3d-mode').classList.contains('active');
+
+        this.controls.update();
 
         if (this.textMeshes.length > 0) {
             if (this.active3d) {
                 this.textMeshes.forEach(textMesh => {
                     // Smoothly interpolate the current Y position to the target Y position
-                    textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 12, 0.05);
+                    textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 9, 0.1);
                 });
             
-                const textYPosition = this.textMeshes[0].position.y;
-                // Smoothly interpolate the camera's Y position
-                this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, textYPosition, 0.05);
-                this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, -40, 0.05);
-                this.camera.rotation.y = THREE.MathUtils.lerp(this.camera.rotation.y, -0.5, 0.05);
+                const textPosition = this.textMeshes[0].position;
+
+                if (this.mode3dTransition && !this.controls.enabled) {
+                    this.controls.maxPolarAngle = THREE.MathUtils.lerp(this.controls.maxPolarAngle, (Math.PI / 2) - 0.1, 0.1);
+                    this.controls.minPolarAngle = THREE.MathUtils.lerp(this.controls.minPolarAngle, Math.PI / 3, 0.1);
+                    this.controls.update();
+                    // Smoothly interpolate the camera's Y position
+                    this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, textPosition.y, 0.1);
+                    this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, -40, 0.1);
+
+                    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+                    const polarAngle = Math.acos(offset.y / offset.length());
+
+                    const minPolarAngle = this.controls.minPolarAngle;
+                    const maxPolarAngle = this.controls.maxPolarAngle;
+                    
+                    // Clamp the polar angle
+                    const clampedPolarAngle = THREE.MathUtils.clamp(polarAngle, minPolarAngle, maxPolarAngle);
+                    
+                    // Update the camera's position to match the clamped polar angle
+                    const radius = offset.length();
+                    offset.setFromSphericalCoords(radius, clampedPolarAngle, Math.atan2(offset.x, offset.z));
+                    this.camera.position.copy(this.controls.target).add(offset);
+                    this.camera.lookAt(this.controls.target);                    
+                }
+
+                if (this.camera.position.x < -37) {
+                    this.mode3dTransition = false;
+                    this.controls.enabled = true;
+                }
+                else if (!this.controls.enabled) {
+                    this.mode3dTransition = true;
+                }
             }
             else {
+                this.resetControls();
+                this.controls.maxPolarAngle = THREE.MathUtils.lerp(this.controls.maxPolarAngle, Math.PI / 2, 0.1);
+                this.controls.minPolarAngle = THREE.MathUtils.lerp(this.controls.minPolarAngle, Math.PI / 3, 0.1);                
+                this.controls.enabled = false;
+                this.controls.update();
                 this.textMeshes.forEach(textMesh => {
                     // Smoothly interpolate the current Y position to the target Y position
-                    textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 8, 0.05);
+                    textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 8, 0.1);
                 });
-                // Smoothly interpolate the camera's Y position
-                this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, 0.2, 0.05);
-                this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, 0, 0.05);
-                this.camera.rotation.y = THREE.MathUtils.lerp(this.camera.rotation.y, 0, 0.05);
             }
         }
 
