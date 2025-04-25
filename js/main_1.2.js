@@ -1,7 +1,7 @@
 import DebugGui from './base/debug_gui.js';
 import UnderConstructionScene from './scenes/under_construction_scene_1.4.js';
 import FireCampScene from './scenes/fire_camp_scene_1.0.js';
-import TestLabScene from './scenes/testlab_1.0.js';
+import TestLabScene from './scenes/testlab_1.1.js';
 
 let currentScene = null;
 

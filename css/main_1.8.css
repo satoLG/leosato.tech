@@ -92,6 +92,7 @@ a {
         margin-top: 10px;
         top: 100px;
         left: 20px;
+        width: fit-content !important;
     }
 
     /* For WebKit browsers (Chrome, Edge, Safari) */

@@ -178,22 +178,23 @@ class TestLabScene extends ThreejsScene {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.maxPolarAngle = Math.PI / 2.5;
         this.controls.minPolarAngle = Math.PI / 3.5;
+        this.controls.minAzimuthAngle = - Math.PI / 4; // radians
+        this.controls.maxAzimuthAngle = Math.PI / 4; // radians
+        this.controls.maxDistance = 100;
+        this.controls.minDistance = 4;
+        this.controls.maxZoom = 3;
+        this.controls.minZoom = 0.5;
         this.controls.rotateSpeed = 1;
 
         const textureLoader = new THREE.TextureLoader();
 
         // Add a dark blue sky
         const skyColor = '#1d3557'; // Dark blue color
-        const skyGeometry = new THREE.SphereGeometry(50, 64, 64);
-        const skyMaterial = new THREE.MeshBasicMaterial({
-            color: new THREE.Color(skyColor),
-            side: THREE.BackSide, // Render the inside of the sphere
-        });
-        this.sky = new THREE.Mesh(skyGeometry, skyMaterial);
-        this.scene.add(this.sky);
+
+        this.scene.background = new THREE.Color(skyColor);
 
         // Add fog to match the background color
-        this.scene.fog = new THREE.Fog(skyColor, 10, 50); // Fog starts at 10 and ends at 50
+        this.scene.fog = new THREE.FogExp2(skyColor, 0.0142);
 
         // Load cobble.png texture for new objects
         const cobbleTexture = textureLoader.load('textures/testlab/cobble.png');
@@ -484,14 +485,14 @@ class TestLabScene extends ThreejsScene {
             const origin = rayOrigin.clone().add(offset); // Adjust the ray origin with the offset
             raycaster.set(origin, direction);
     
-            // Visualize the ray using an ArrowHelper (for debugging)
-            const arrowHelper = new THREE.ArrowHelper(direction, origin, 2, 0xff0000); // Length = 2, Color = Red
-            this.scene.add(arrowHelper);
+            // // Visualize the ray using an ArrowHelper (for debugging)
+            // const arrowHelper = new THREE.ArrowHelper(direction, origin, 2, 0xff0000); // Length = 2, Color = Red
+            // this.scene.add(arrowHelper);
     
-            // Remove the arrow helper after a short delay to avoid clutter
-            setTimeout(() => {
-                this.scene.remove(arrowHelper);
-            }, 100); // Adjust the delay as needed
+            // // Remove the arrow helper after a short delay to avoid clutter
+            // setTimeout(() => {
+            //     this.scene.remove(arrowHelper);
+            // }, 100); // Adjust the delay as needed
     
             // Check for intersections with objects in the scene
             const intersects = raycaster.intersectObjects([...this.geometries], true);
