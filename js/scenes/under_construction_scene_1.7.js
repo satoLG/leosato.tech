@@ -33,11 +33,11 @@ class UnderConstructionScene extends ThreejsScene {
         // Define boundaries for cube movement
         this.boundaries = {
             minX: -20,
-            maxX: 20,
+            maxX: 200,
             minY: 0, // Prevent going below the ground
-            maxY: 20,
+            maxY: 200,
             minZ: -20,
-            maxZ: 20,
+            maxZ: 200,
         };
     }
 
@@ -52,59 +52,15 @@ class UnderConstructionScene extends ThreejsScene {
 
         // Add camera
         this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2000 );
-        this.camera.position.set( 0, 0.2, 70 );
+        this.camera.position.set( 0, 5, 50 );
 
-        // Add controls
-        this.controls = new OrbitControls( this.camera, this.renderer.domElement );
-        this.controls.target.set( 0, 0, 0 );
-        this.controls.enabled = false;
-        this.controls.enablePan = false;
-        this.controls.enableDamping = true;
-        this.controls.maxPolarAngle = Math.PI / 2;
-        this.controls.minPolarAngle = Math.PI / 3;
-        // this.controls.minPolarAngle = 0; // Default value, unrestricted upward view
-        // this.controls.maxPolarAngle = Math.PI; // Default value, unrestricted downward view        
-        this.controls.minAzimuthAngle = - Math.PI / 4; // radians
-        this.controls.maxAzimuthAngle = Math.PI / 4; // radians
-        this.controls.maxDistance = 100;
-        this.controls.minDistance = 50;
-        this.controls.maxZoom = 3;
-        this.controls.minZoom = 0.5;
-        this.controls.rotateSpeed = 0.5;
-        this.controls.update();
+        this.calculateViewportBoundaries();
 
         // Add lights
         this.createLights();
 
         // Add ground
         this.createGround();
-
-        document.getElementById('loading-screen').style.display = '';
-        // Loading manager
-        const loadingManager = new THREE.LoadingManager(
-            () => {
-                // On load complete
-                setTimeout(() => {
-                    document.getElementById('loading-screen').style.display = 'none';
-                    document.getElementById('progress-bar').style.width = '0%';
-                }, 1000);
-            },
-            (itemUrl, itemsLoaded, itemsTotal) => {
-                // On progress
-                const progress = (itemsLoaded / itemsTotal) * 100;
-                document.getElementById('progress-bar').style.width = `${progress}%`;
-            },
-            (url) => {
-                // On load start
-                document.getElementById('loading-screen').style.display = '';
-            }
-        );
-
-        // Setup model loader
-        const dracoLoader = new DRACOLoader();
-        dracoLoader.setDecoderPath( 'jsm/' );
-        const loader = new GLTFLoader(loadingManager);
-        loader.setDRACOLoader( dracoLoader );
 
         this.addNewCube('textures/main/linkedin.png');
         this.addNewCube('textures/main/github.png');
@@ -113,14 +69,16 @@ class UnderConstructionScene extends ThreejsScene {
         this.addNewCube('textures/main/whatsapp.jpeg');
         this.addNewCube('textures/main/gmail.png');
 
-        this.loadModel(loader, 'models/under_construction/street_lamp.glb', [15, 0, 10], [6, 4, 6], [-Math.PI, Math.PI / 2, 0], true);
-
         // Add text
         const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
         this.addText(
-            `LEO SATO`, 
-            fontPath, [-10, 0, 0], 2.5, 0.5, 'white'
+            `LEO`, 
+            fontPath, [-1.8, 3, 33], 1, .5, 'white'
         );
+        this.addText(
+            `SATO`, 
+            fontPath, [-1.8, 1, 38], 1, .5, 'white'
+        );        
 
         // Add debug GUI features
         if (this.debugGui) {
@@ -128,6 +86,28 @@ class UnderConstructionScene extends ThreejsScene {
                 this.addDebugGui();                
             }, 2000);
         }
+
+        // Create the drag-and-drop div
+        const dropZone = document.createElement('div');
+        dropZone.id = 'drop-zone';
+        // dropZone.style.position = 'absolute';
+        // dropZone.style.top = '10px';
+        // dropZone.style.left = '50%';
+        // dropZone.style.transform = 'translateX(-50%)';
+        // dropZone.style.width = '200px';
+        // dropZone.style.height = '100px';
+        // dropZone.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
+        // dropZone.style.border = '2px dashed white';
+        // dropZone.style.color = 'white';
+        // dropZone.style.textAlign = 'center';
+        // dropZone.style.lineHeight = '100px';
+        // dropZone.style.fontSize = '16px';
+        dropZone.style.display = 'none'; // Initially hidden
+        dropZone.innerText = 'Solte aqui para abrir o link!';
+        document.body.appendChild(dropZone);
+
+        this.dropZone = dropZone;
+
 
         // Add mouse event listeners
         window.addEventListener('mousedown', this.onMouseDown.bind(this));
@@ -137,60 +117,37 @@ class UnderConstructionScene extends ThreejsScene {
         window.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
         window.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
         window.addEventListener('touchend', this.onTouchEnd.bind(this));
-    
-        this.enableGyroscopeControl();
+
+        // Update boundaries on window resize
+        window.addEventListener('resize', this.onWindowResize.bind(this));
     }
 
-    enableGyroscopeControl() {
-        // Check if DeviceOrientation is supported
-        if (window.DeviceOrientationEvent) {
-            // For iOS, request permission
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                const requestGyroscopePermission = async () => {
-                    const permission = await DeviceOrientationEvent.requestPermission();
-                    if (permission === 'granted') {
-                        window.addEventListener('deviceorientation', this.handleDeviceOrientation.bind(this));
-                    } else {
-                        console.error('Gyroscope permission denied.');
-                    }
-                };
+    calculateViewportBoundaries() {
+        const aspect = window.innerWidth / window.innerHeight;
+        const vFOV = THREE.MathUtils.degToRad(this.camera.fov); // Vertical field of view in radians
+        const height = 2 * Math.tan(vFOV / 2) * this.camera.position.z; // Visible height
+        const width = height * aspect; // Visible width
     
-                // Add a button to request permission
-                const button = document.createElement('button');
-                button.innerText = 'Enable Gyroscope';
-                button.style.position = 'absolute';
-                button.style.top = '10px';
-                button.style.left = '10px';
-                button.style.zIndex = '1000';
-                button.addEventListener('click', requestGyroscopePermission);
-                document.body.appendChild(button);
-            } else {
-                // For non-iOS devices, add the event listener directly
-                window.addEventListener('deviceorientation', this.handleDeviceOrientation.bind(this));
-            }
-        } else {
-            console.error('DeviceOrientationEvent is not supported on this device.');
-        }
+        this.boundaries = {
+            minX: -(width / 2 - 3),
+            maxX: width / 2 - 3,
+            minY: 0, // Prevent going below the ground
+            maxY: height,
+            minZ: -40, // Keep Z boundaries fixed
+            maxZ: 80,
+        };
     }
 
-    handleDeviceOrientation(event) {
-        // Get orientation angles
-        const alpha = event.alpha; // Rotation around the Z-axis (0 to 360 degrees)
-        const beta = event.beta;   // Rotation around the X-axis (-180 to 180 degrees)
-        const gamma = event.gamma; // Rotation around the Y-axis (-90 to 90 degrees)
+    onWindowResize() {
+        // Update camera aspect ratio and projection matrix
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
     
-        // Map the gyroscope data to cube movement
-        this.geometries.forEach((cube, index) => {
-            const body = this.physicsBodies[index];
+        // Recalculate viewport boundaries
+        this.calculateViewportBoundaries();
     
-            // Update the cube's position based on gyroscope data
-            cube.position.x = THREE.MathUtils.clamp(gamma / 10, this.boundaries.minX, this.boundaries.maxX);
-            cube.position.y = THREE.MathUtils.clamp(beta / 10, this.boundaries.minY, this.boundaries.maxY);
-            cube.position.z = THREE.MathUtils.clamp(alpha / 50, this.boundaries.minZ, this.boundaries.maxZ);
-    
-            // Update the physics body position
-            body.position.copy(cube.position);
-        });
+        // Update renderer size
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
     onMouseDown(event) {
@@ -216,6 +173,11 @@ class UnderConstructionScene extends ThreejsScene {
                 this.physicsBodies[index].type = CANNON.Body.KINEMATIC; // Make the body kinematic
             }
         }
+
+        if (this.selectedCube) {
+            // Show the drop zone
+            this.dropZone.style.display = 'block';
+        }        
     }
     
     onMouseMove(event) {
@@ -230,13 +192,20 @@ class UnderConstructionScene extends ThreejsScene {
             this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), intersectionPoint);
     
             // Update the position of the selected cube
-            this.selectedCube.position.copy(intersectionPoint.sub(this.offset));
+            //this.selectedCube.position.copy(intersectionPoint.sub(this.offset));
     
             // Prevent the cube from going below the ground
-            if (this.selectedCube.position.y < 1.8) {
-                this.selectedCube.position.y = 1.8; // Clamp the y position to 0
+            if (this.selectedCube.position.y < 2.2) {
+                this.selectedCube.position.y = 2.2; // Clamp the y position to 0
             }
         
+            // Preserve the original Z position of the selected object
+            const originalZ = this.selectedCube.position.z;
+
+            // Update the position of the selected cube (only X and Y)
+            this.selectedCube.position.copy(intersectionPoint.sub(this.offset));
+            this.selectedCube.position.z = originalZ; // Keep the Z position fixed
+
             // Clamp the cube's position within the boundaries
             const { minX, maxX, minY, maxY, minZ, maxZ } = this.boundaries;
             this.selectedCube.position.x = THREE.MathUtils.clamp(this.selectedCube.position.x, minX, maxX);
@@ -251,8 +220,29 @@ class UnderConstructionScene extends ThreejsScene {
         }
     }
     
-    onMouseUp() {
+    onMouseUp(event) {
         if (this.selectedCube) {
+            // Check if the object is dropped inside the drop zone
+            const dropZoneRect = this.dropZone.getBoundingClientRect();
+            // Calculate mouse position in normalized device coordinates
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+    
+            console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY);
+            console.log('Drop Zone Rect:', dropZoneRect);
+            if (
+                mouseX >= dropZoneRect.left &&
+                mouseX <= dropZoneRect.right &&
+                mouseY >= dropZoneRect.top &&
+                mouseY <= dropZoneRect.bottom
+            ) {
+                // Open the link in a new tab
+                window.open('https://www.linkedin.com/in/leonardo-gutierrez-sato/', '_blank');
+            }
+    
+            // Hide the drop zone
+            this.dropZone.style.display = 'none';
+    
             // Re-enable physics for the selected cube
             const index = this.geometries.indexOf(this.selectedCube);
             if (index !== -1) {
@@ -295,11 +285,17 @@ class UnderConstructionScene extends ThreejsScene {
     }
     
     onTouchEnd(event) {
-        // Check if the touch is on the Three.js canvas
-        if (event.target !== this.renderer.domElement) return;
+        if (event.changedTouches.length > 0) {
+            // Extract touch position from changedTouches
+            const touch = event.changedTouches[0];
+            const simulatedMouseEvent = {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+            };
     
-        // Reuse the onMouseUp logic
-        this.onMouseUp(event);
+            // Reuse the onMouseUp logic
+            this.onMouseUp(simulatedMouseEvent);
+        }
     }
 
     addNewCube(texturePath) {
@@ -475,52 +471,84 @@ class UnderConstructionScene extends ThreejsScene {
         });
     }
 
-    addText(text, fontPath, position, size, height, color, border=undefined) {
+    addText(text, fontPath, position, size, height, color, border = undefined) {
         let scene = this.scene;
         let textMeshes = this.textMeshes;
         const textLoader = new FontLoader();
     
-        textLoader.load(fontPath, function (font) {
-            // TextGeometry(String, Object)
-            const textObj = new TextGeometry(
-            text, {
+        textLoader.load(fontPath, (font) => {
+            // Create the text geometry
+            const textObj = new TextGeometry(text, {
                 font: font,
                 size: size,
                 height: height,
-                depth: 11,
                 curveSegments: 12,
                 bevelEnabled: false,
             });
-            const material = new THREE.MeshPhysicalMaterial({color: color});
+    
+            const material = new THREE.MeshPhysicalMaterial({ color: color });
             const mesh = new THREE.Mesh(textObj, material);
             mesh.position.set(position[0], position[1], position[2]);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
     
             if (border) {
-                const outerGeometry = new TextGeometry( text, {
+                const outerGeometry = new TextGeometry(text, {
                     font: font,
                     size: size,
-                    height: height/2,
-                    depth: 10,
+                    height: height / 2,
                     curveSegments: 12,
                     bevelEnabled: true,
                     bevelThickness: 0,
                     bevelSize: 0.2, // size of border
                     bevelOffset: 0,
-                    bevelSegments: 1
-                } );
+                    bevelSegments: 1,
+                });
     
                 const borderText = new THREE.Mesh(
                     outerGeometry,
-                    new THREE.MeshPhysicalMaterial( {color: border} )
-                );	
+                    new THREE.MeshPhysicalMaterial({ color: border })
+                );
                 borderText.position.z = 0.1;
-                mesh.add( borderText );
+                mesh.add(borderText);
             }
     
+            // Add the text mesh to the scene
             scene.add(mesh);
             textMeshes.push(mesh);
+    
+            // Dynamically calculate the bounding box of the text
+            mesh.geometry.computeBoundingBox();
+            const boundingBox = mesh.geometry.boundingBox;
+            const boxSize = new THREE.Vector3();
+            boundingBox.getSize(boxSize);
+    
+            // Add physics body for the text
+            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, boxSize.y / 2, boxSize.z / 2));
+            const textBody = new CANNON.Body({
+                mass: 1, // Dynamic body
+                position: new CANNON.Vec3(position[0], position[1] + boxSize.y / 2, position[2]), // Adjust position to match the bounding box
+                shape: textShape,
+            });
+    
+            // Add bouncing effect by setting restitution
+            const textPhysicsMaterial = new CANNON.Material();
+            textBody.material = textPhysicsMaterial;
+    
+            // Create a contact material for bouncing
+            const groundMaterial = this.groundBody.material; // Assuming the ground has a material
+            const contactMaterial = new CANNON.ContactMaterial(textPhysicsMaterial, groundMaterial, {
+                restitution: 0.1, // Lower bounciness for stacking
+                friction: 0.6, // Friction for stability
+            });
+            this.physicsWorld.addContactMaterial(contactMaterial);
+    
+            // Add the physics body to the world
+            this.physicsWorld.addBody(textBody);
+    
+            // Store the text mesh and its physics body
+            this.geometries.push(mesh); // Add to raycasting list
+            this.physicsBodies.push(textBody);
         });
     }
 
@@ -548,9 +576,9 @@ class UnderConstructionScene extends ThreejsScene {
         } );
         bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
         // set bulbLight position to the street_lamp position
-        bulbLight.position.set( 5, 10, 10 );
-        bulbLight.intensity = 1.5;
-        bulbLight.distance = 50;
+        bulbLight.position.set( 10, 10, 45 );
+        bulbLight.intensity = 0.8;
+        bulbLight.distance = 500;
         bulbLight.castShadow = true;
         bulbLight.shadowMapVisible = true;
         bulbLight.shadow.mapSize.width = 260;
@@ -586,30 +614,6 @@ class UnderConstructionScene extends ThreejsScene {
         this.groundBody = groundBody;
     }
 
-    resetControls() {
-        // Smoothly interpolate the camera position
-        this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, 0, 0.1);
-        this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, 0.2, 0.1);
-        this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, 70, 0.1);
-    
-        // Smoothly interpolate the camera rotation
-        this.camera.rotation.x = THREE.MathUtils.lerp(this.camera.rotation.x, 0, 0.1);
-        this.camera.rotation.y = THREE.MathUtils.lerp(this.camera.rotation.y, 0, 0.1);
-        this.camera.rotation.z = THREE.MathUtils.lerp(this.camera.rotation.z, 0, 0.1);
-    
-        // Smoothly interpolate the controls target
-        this.controls.target.x = THREE.MathUtils.lerp(this.controls.target.x, 0, 0.1);
-        this.controls.target.y = THREE.MathUtils.lerp(this.controls.target.y, 0, 0.1);
-        this.controls.target.z = THREE.MathUtils.lerp(this.controls.target.z, 0, 0.1);
-    
-        // Smoothly interpolate the zoom
-        this.camera.zoom = THREE.MathUtils.lerp(this.camera.zoom, 1, 0.1);
-        this.camera.updateProjectionMatrix(); // Ensure the zoom is applied
-    
-        // Update the controls to apply the changes
-        this.controls.update();
-    }
-
     customAnimate() {
         const elapsedTime = this.clock.getElapsedTime();
 
@@ -631,70 +635,6 @@ class UnderConstructionScene extends ThreejsScene {
             cube.position.copy(body.position);
             cube.quaternion.copy(body.quaternion);
         });
-
-        this.active3d = document.getElementById('3d-mode').classList.contains('active');
-
-        this.controls.update();
-
-        if (this.textMeshes.length > 0) {
-            if (this.active3d) {
-                // this.textMeshes.forEach(textMesh => {
-                //     // Smoothly interpolate the current Y position to the target Y position
-                //     textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 9, 0.1);
-                // });
-            
-                const textPosition = this.textMeshes[0].position;
-
-                if (this.mode3dTransition && !this.controls.enabled) {
-                    this.controls.maxPolarAngle = THREE.MathUtils.lerp(this.controls.maxPolarAngle, (Math.PI / 2) - 0.1, 0.1);
-                    this.controls.minPolarAngle = THREE.MathUtils.lerp(this.controls.minPolarAngle, Math.PI / 3, 0.1);
-                    this.controls.update();
-                    // Smoothly interpolate the camera's Y position
-                    this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, textPosition.y, 0.1);
-                    this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, -40, 0.1);
-
-                    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
-                    const polarAngle = Math.acos(offset.y / offset.length());
-
-                    const minPolarAngle = this.controls.minPolarAngle;
-                    const maxPolarAngle = this.controls.maxPolarAngle;
-                    
-                    // Clamp the polar angle
-                    const clampedPolarAngle = THREE.MathUtils.clamp(polarAngle, minPolarAngle, maxPolarAngle);
-                    
-                    // Update the camera's position to match the clamped polar angle
-                    const radius = offset.length();
-                    offset.setFromSphericalCoords(radius, clampedPolarAngle, Math.atan2(offset.x, offset.z));
-                    this.camera.position.copy(this.controls.target).add(offset);
-                    this.camera.lookAt(this.controls.target);                    
-                }
-
-                if (this.camera.position.x < -37) {
-                    this.mode3dTransition = false;
-                    this.controls.enabled = true;
-                }
-                else if (!this.controls.enabled) {
-                    this.mode3dTransition = true;
-                }
-            }
-            else {
-                this.resetControls();
-                this.controls.maxPolarAngle = THREE.MathUtils.lerp(this.controls.maxPolarAngle, Math.PI / 2, 0.1);
-                this.controls.minPolarAngle = THREE.MathUtils.lerp(this.controls.minPolarAngle, Math.PI / 3, 0.1);                
-                this.controls.enabled = false;
-                this.controls.update();
-                // this.textMeshes.forEach(textMesh => {
-                //     // Smoothly interpolate the current Y position to the target Y position
-                //     textMesh.position.y = THREE.MathUtils.lerp(textMesh.position.y, 8, 0.1);
-                // });
-            }
-        }
-
-        if (this.animationMixers.length > 0) {
-            this.animationMixers.forEach(mixer => {
-                mixer.update((1 / 60) * 1.5);
-            });
-        }
     }
 }
 

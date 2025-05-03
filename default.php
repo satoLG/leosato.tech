@@ -10,10 +10,10 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
-        <link href="./css/main_1.8.css" rel="stylesheet">
+        <link href="./css/main_1.9.css" rel="stylesheet">
     </head>
     <body>
-        <div id="header">
+        <!-- <div id="header">
             <div id="headerinfo">
                 <span class="nametag">LEONARDO SATO</span>
                 <div class="link_icons">
@@ -53,7 +53,7 @@
                 <div class="tab" id="2d-mode">2D</div>
                 <div class="tab" id="3d-mode">3D</div>
             </div>
-        </div>
+        </div> -->
         <div id="footer">
             <div id="scenes" class="tabs" style="display: none;">
                 <div class="tab" id="under-construction-tab">Under Construction</div>
@@ -66,7 +66,7 @@
         <div id="collision-info" style="z-index: 2; position: absolute; top: 10px; left: 10px; color: white; background: rgba(0, 0, 0, 0.7); padding: 10px; border-radius: 5px; display: none;">
             Collision with: <span id="object-name"></span>
         </div>
-        <div id="loading-screen">
+        <div id="loading-screen" style="display: none;">
             <span id="loading-desc">Loading...</span>
             <div id="progress-bar-container">
                 <div id="progress-bar"></div>
@@ -89,7 +89,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main_1.4.js">
+        <script type="module" src="./js/main_1.5.js">
         </script>
     </body>
 </html>

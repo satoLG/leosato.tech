@@ -1,5 +1,5 @@
 import DebugGui from './base/debug_gui.js';
-import UnderConstructionScene from './scenes/under_construction_scene_1.6.js';
+import UnderConstructionScene from './scenes/under_construction_scene_1.7.js';
 import FireCampScene from './scenes/fire_camp_scene_1.0.js';
 import TestLabScene from './scenes/testlab_1.1.js';
 
@@ -47,12 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const mode2dTab = document.getElementById('2d-mode');
     const mode3dTab = document.getElementById('3d-mode');
 
-    mode2dTab.addEventListener('click', () => {
+    mode2dTab?.addEventListener('click', () => {
         document.querySelectorAll('#actions .tab').forEach(tab => tab.classList.remove('active'));
         mode2dTab.classList.add('active');
     });
 
-    mode3dTab.addEventListener('click', () => {
+    mode3dTab?.addEventListener('click', () => {
         document.querySelectorAll('#actions .tab').forEach(tab => tab.classList.remove('active'));
         mode3dTab.classList.add('active');
     });
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     })
 
-    mode2dTab.classList.add('active');
+    mode2dTab?.classList.add('active');
 
     // Initialize with the first scene
     initScene(UnderConstructionScene);

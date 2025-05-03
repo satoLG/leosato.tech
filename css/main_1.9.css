@@ -179,3 +179,18 @@ a {
     border-radius: 10px;
     transition: width 0.5s ease;
 }
+
+#drop-zone {
+    position: absolute;
+    margin: 10px;
+    width: -webkit-fill-available;
+    height: 150px;
+    background-color: rgb(177 173 173 / 14%);
+    border: 2px dashed white;
+    color: white;
+    text-align: center;
+    line-height: 100px;
+    font-size: 16px;
+    text-align: center;
+    transition: opacity 0.3s ease;
+}
