@@ -62,22 +62,22 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
-        this.addNewCube('textures/main/linkedin.png');
-        this.addNewCube('textures/main/github.png');
-        this.addNewCube('textures/main/codepen.png');
-        this.addNewCube('textures/main/instagram.jpg');
-        this.addNewCube('textures/main/whatsapp.jpeg');
-        this.addNewCube('textures/main/gmail.png');
+        this.addNewCube('textures/main/linkedin.png', '', 2.2, new THREE.Vector3(-5, 25.5, 20));
+        this.addNewCube('textures/main/github.png', '', 2.2, new THREE.Vector3(0, 25.5, 20));
+        this.addNewCube('textures/main/codepen.png', '', 2.2, new THREE.Vector3(5, 25.5, 20));
+        this.addNewCube('textures/main/instagram.jpg', '', 2.2, new THREE.Vector3(5, 20.5, 20));
+        this.addNewCube('textures/main/whatsapp.jpeg', '', 2.2, new THREE.Vector3(0, 20.5, 20));
+        this.addNewCube('textures/main/gmail.png', '', 2.2, new THREE.Vector3(-5, 20.5, 20));
 
         // Add text
         const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
         this.addText(
             `LEO`, 
-            fontPath, [-1.8, 3, 33], 1, .5, 'white'
+            fontPath, [-1.8, 15, 33], 1, .5, 'white'
         );
         this.addText(
             `SATO`, 
-            fontPath, [-1.8, 1, 38], 1, .5, 'white'
+            fontPath, [-1.8, 15, 38], 1, .5, 'white'
         );        
 
         // Add debug GUI features
@@ -90,18 +90,6 @@ class UnderConstructionScene extends ThreejsScene {
         // Create the drag-and-drop div
         const dropZone = document.createElement('div');
         dropZone.id = 'drop-zone';
-        // dropZone.style.position = 'absolute';
-        // dropZone.style.top = '10px';
-        // dropZone.style.left = '50%';
-        // dropZone.style.transform = 'translateX(-50%)';
-        // dropZone.style.width = '200px';
-        // dropZone.style.height = '100px';
-        // dropZone.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
-        // dropZone.style.border = '2px dashed white';
-        // dropZone.style.color = 'white';
-        // dropZone.style.textAlign = 'center';
-        // dropZone.style.lineHeight = '100px';
-        // dropZone.style.fontSize = '16px';
         dropZone.style.display = 'none'; // Initially hidden
         dropZone.innerText = 'Solte aqui para abrir o link!';
         document.body.appendChild(dropZone);
@@ -129,8 +117,8 @@ class UnderConstructionScene extends ThreejsScene {
         const width = height * aspect; // Visible width
     
         this.boundaries = {
-            minX: -(width / 2 - 3),
-            maxX: width / 2 - 3,
+            minX: -(width / 2 - 8),
+            maxX: width / 2 - 8,
             minY: 0, // Prevent going below the ground
             maxY: height,
             minZ: -40, // Keep Z boundaries fixed
@@ -298,7 +286,7 @@ class UnderConstructionScene extends ThreejsScene {
         }
     }
 
-    addNewCube(texturePath) {
+    addNewCube(texturePath, cubeUrl, cubeSize, cubePosition) {
         const textureLoader = new THREE.TextureLoader();
         const texture = textureLoader.load(texturePath);
         texture.magFilter = THREE.NearestFilter; // Pixelated look for the cube
@@ -336,26 +324,13 @@ class UnderConstructionScene extends ThreejsScene {
             const processedTexture = new THREE.CanvasTexture(canvas);
     
             // Create a new cube with the processed texture
-            const cubeGeometry = new RoundedBoxGeometry(3, 3, 3, 5, 0.2); // Width, Height, Depth, Segments, Radius
+            const cubeGeometry = new RoundedBoxGeometry(cubeSize, cubeSize, cubeSize, 5, 0.2); // Width, Height, Depth, Segments, Radius
             const cubeMaterial = new THREE.MeshStandardMaterial({
                 map: processedTexture, // Use the processed texture
                 color: new THREE.Color('white'), // Set the base color to white
             });
             const newCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    
-            // Set random position for the new cube
-            const x = Math.random() * 20 - 10;
-            const y = Math.random() * 10 + 15; // Start higher to allow falling
-            const z = Math.random() * 20 - 10;
-            newCube.position.set(x, y, z);
-    
-            // Set random rotation for the new cube
-            const randomRotation = {
-                x: Math.random() * Math.PI * 2,
-                y: Math.random() * Math.PI * 2,
-                z: Math.random() * Math.PI * 2,
-            };
-            newCube.rotation.set(randomRotation.x, randomRotation.y, randomRotation.z);
+            newCube.position.set(cubePosition.x, cubePosition.y, cubePosition.z);
     
             newCube.castShadow = true; // Allow the cube to cast shadows
             newCube.receiveShadow = true; // Allow the cube to receive shadows
@@ -366,15 +341,15 @@ class UnderConstructionScene extends ThreejsScene {
             this.scene.add(newCube);
     
             // Add a physics body for the cube
-            const cubeShape = new CANNON.Box(new CANNON.Vec3(1.5, 1.5, 1.5)); // Half extents of the cube (match the size of the RoundedBoxGeometry)
+            const cubeShape = new CANNON.Box(new CANNON.Vec3(cubeSize/2, cubeSize/2, cubeSize/2)); // Half extents of the cube (match the size of the RoundedBoxGeometry)
             const cubeBody = new CANNON.Body({
                 mass: 1, // Dynamic body
-                position: new CANNON.Vec3(x, y, z),
+                position: new CANNON.Vec3(cubePosition.x, cubePosition.y, cubePosition.z),
                 shape: cubeShape,
             });
     
             // Set random rotation for the physics body
-            cubeBody.quaternion.setFromEuler(randomRotation.x, randomRotation.y, randomRotation.z);
+            // cubeBody.quaternion.setFromEuler(randomRotation.x, randomRotation.y, randomRotation.z);
     
             // Add bouncing effect by setting restitution
             const cubePhysicsMaterial = new CANNON.Material();
@@ -383,7 +358,7 @@ class UnderConstructionScene extends ThreejsScene {
             // Create a contact material for bouncing
             const groundMaterial = this.groundBody.material; // Assuming the ground has a material
             const contactMaterial = new CANNON.ContactMaterial(cubePhysicsMaterial, groundMaterial, {
-                restitution: 0.3, // Bounciness (higher values = more bounce)
+                restitution: 0.1, // Bounciness (higher values = more bounce)
                 friction: 0.6, // Friction
             });
             this.physicsWorld.addContactMaterial(contactMaterial);
@@ -576,7 +551,7 @@ class UnderConstructionScene extends ThreejsScene {
         } );
         bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
         // set bulbLight position to the street_lamp position
-        bulbLight.position.set( 10, 10, 45 );
+        bulbLight.position.set( 3, 5, 45 );
         bulbLight.intensity = 0.8;
         bulbLight.distance = 500;
         bulbLight.castShadow = true;
