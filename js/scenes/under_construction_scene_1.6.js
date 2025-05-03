@@ -137,6 +137,60 @@ class UnderConstructionScene extends ThreejsScene {
         window.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
         window.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
         window.addEventListener('touchend', this.onTouchEnd.bind(this));
+    
+        this.enableGyroscopeControl();
+    }
+
+    enableGyroscopeControl() {
+        // Check if DeviceOrientation is supported
+        if (window.DeviceOrientationEvent) {
+            // For iOS, request permission
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                const requestGyroscopePermission = async () => {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        window.addEventListener('deviceorientation', this.handleDeviceOrientation.bind(this));
+                    } else {
+                        console.error('Gyroscope permission denied.');
+                    }
+                };
+    
+                // Add a button to request permission
+                const button = document.createElement('button');
+                button.innerText = 'Enable Gyroscope';
+                button.style.position = 'absolute';
+                button.style.top = '10px';
+                button.style.left = '10px';
+                button.style.zIndex = '1000';
+                button.addEventListener('click', requestGyroscopePermission);
+                document.body.appendChild(button);
+            } else {
+                // For non-iOS devices, add the event listener directly
+                window.addEventListener('deviceorientation', this.handleDeviceOrientation.bind(this));
+            }
+        } else {
+            console.error('DeviceOrientationEvent is not supported on this device.');
+        }
+    }
+
+    handleDeviceOrientation(event) {
+        // Get orientation angles
+        const alpha = event.alpha; // Rotation around the Z-axis (0 to 360 degrees)
+        const beta = event.beta;   // Rotation around the X-axis (-180 to 180 degrees)
+        const gamma = event.gamma; // Rotation around the Y-axis (-90 to 90 degrees)
+    
+        // Map the gyroscope data to cube movement
+        this.geometries.forEach((cube, index) => {
+            const body = this.physicsBodies[index];
+    
+            // Update the cube's position based on gyroscope data
+            cube.position.x = THREE.MathUtils.clamp(gamma / 10, this.boundaries.minX, this.boundaries.maxX);
+            cube.position.y = THREE.MathUtils.clamp(beta / 10, this.boundaries.minY, this.boundaries.maxY);
+            cube.position.z = THREE.MathUtils.clamp(alpha / 50, this.boundaries.minZ, this.boundaries.maxZ);
+    
+            // Update the physics body position
+            body.position.copy(cube.position);
+        });
     }
 
     onMouseDown(event) {
