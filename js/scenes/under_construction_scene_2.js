@@ -62,41 +62,49 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
+        let cubeSize = Math.min(window.innerWidth, window.innerHeight) * 0.005; // Size of the cubes
+
         this.addNewCube(
             'textures/main/linkedin.png', 
             'https://www.linkedin.com/in/leonardo-gutierrez-sato/',
             'LinkedIn',
-            2.2, new THREE.Vector3(-5.1, 25.5, 20.1)
+            cubeSize, 
+            new THREE.Vector3(-5.1, 25.5, 20.1)
         );
         this.addNewCube(
             'textures/main/github.png', 
             'https://github.com/satoLG', 
             'GitHub',
-            2.2, new THREE.Vector3(0.1, 25.5, 20.1)
+            cubeSize, 
+            new THREE.Vector3(0.1, 25.5, 20.1)
         );
         this.addNewCube(
             'textures/main/codepen.png', 
             'https://codepen.io/satoLG', 
             'CodePen',
-            2.2, new THREE.Vector3(5.1, 25.5, 20.1)
+            cubeSize, 
+            new THREE.Vector3(5.1, 25.5, 20.1)
         );
         this.addNewCube(
             'textures/main/instagram.jpg', 
             'https://www.instagram.com/sato_leo_kun/',
             'Instagram',
-            2.2, new THREE.Vector3(5, 20.5, 20)
+            cubeSize, 
+            new THREE.Vector3(5, 20.5, 20)
         );
         this.addNewCube(
             'textures/main/whatsapp.jpeg', 
             'https://wa.me/11952354083', 
             'WhatsApp',
-            2.2, new THREE.Vector3(0, 20.5, 20)
+            cubeSize, 
+            new THREE.Vector3(0, 20.5, 20)
         );
         this.addNewCube(
             'textures/main/gmail.png', 
             'mailto:leonardogsato@gmail.com', 
             'leonardogsato@gmail.com',
-            2.2, new THREE.Vector3(-5, 20.5, 20)
+            cubeSize, 
+            new THREE.Vector3(-5, 20.5, 20)
         );
 
         // Add text
@@ -119,16 +127,36 @@ class UnderConstructionScene extends ThreejsScene {
 
         this.dropZone = document.querySelector('#drop-zone');
         this.dropZone.addEventListener('mouseover', () => {
-            if (this.selectedCube) {
+            if (this.selectedCube.userData.url) {
+                if (this.selectedCube.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
+                    const texture = this.selectedCube.material.map;
+                
+                    this.getPredominantColor(texture, (color) => {
+                        console.log('Predominant Color:', color);
+                
+                        // Apply the color to the drop zone
+                        this.dropZone.style.boxShadow = `${color} 0px 0px 15px`;
+                    });
+                }
+
                 this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
                 this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
                 this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
             }
         });
 
+        this.dropZone.addEventListener('mouseout', () => {
+            this.dropZone.style.boxShadow = 'none'; // Reset the box shadow
+            this.dropZone.classList.remove('hover');
+            // Reset the drop zone content if not hovering
+            this.dropZone.querySelector('#drop-zone-link').textContent = 'Solte aqui!';
+            this.dropZone.querySelector('#drop-zone-link').href = '';
+            this.dropZone.querySelector('#drop-zone-icon').src = 'img/external-link.png';
+        });
+
         // Add touchstart event for touch devices
         this.dropZone.addEventListener('touchstart', (event) => {
-            if (this.selectedCube) {
+            if (this.selectedCube.userData.url) {
                 this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
                 this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
                 this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
@@ -140,7 +168,7 @@ class UnderConstructionScene extends ThreejsScene {
 
         // Add touchmove event for touch devices
         window.addEventListener('touchmove', (event) => {
-            if (this.selectedCube) {
+            if (this.selectedCube.userData.url) {
                 // Get the touch position
                 const touch = event.touches[0];
                 const touchX = touch.clientX;
@@ -156,6 +184,17 @@ class UnderConstructionScene extends ThreejsScene {
                     touchY >= dropZoneRect.top &&
                     touchY <= dropZoneRect.bottom
                 ) {
+                    if (this.selectedCube.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
+                        const texture = this.selectedCube.material.map;
+                    
+                        this.getPredominantColor(texture, (color) => {
+                            console.log('Predominant Color:', color);
+                    
+                            // Apply the color to the drop zone
+                            this.dropZone.style.boxShadow = `${color} 0px 0px 15px`;
+                        });
+                    }
+
                     this.dropZone.classList.add('hover');
                     // Update the drop zone content
                     this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
@@ -163,6 +202,7 @@ class UnderConstructionScene extends ThreejsScene {
                     this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
                 }
                 else {
+                    this.dropZone.style.boxShadow = 'none'; // Reset the box shadow
                     this.dropZone.classList.remove('hover');
                     // Reset the drop zone content if not hovering
                     this.dropZone.querySelector('#drop-zone-link').textContent = 'Solte aqui!';
@@ -170,20 +210,6 @@ class UnderConstructionScene extends ThreejsScene {
                     this.dropZone.querySelector('#drop-zone-icon').src = 'img/external-link.png';
                 }
             }
-        });
-
-        // Simulate hover effect on touchstart
-        this.dropZone.addEventListener('touchstart', () => {
-            this.dropZone.classList.add('hover');
-        });
-
-        // Remove hover effect on touchend or touchcancel
-        this.dropZone.addEventListener('touchend', () => {
-            this.dropZone.classList.remove('hover');
-        });
-
-        this.dropZone.addEventListener('touchcancel', () => {
-            this.dropZone.classList.remove('hover');
         });
 
         // Add mouse event listeners
@@ -199,6 +225,50 @@ class UnderConstructionScene extends ThreejsScene {
         window.addEventListener('resize', this.onWindowResize.bind(this));
     }
 
+    getPredominantColor(texture, callback) {
+        // Create a canvas to draw the texture
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+    
+        // Wait for the texture to load
+        const image = texture.image;
+        if (!image) {
+            console.error('Texture image not loaded.');
+            return;
+        }
+    
+        // Set canvas size to match the texture
+        canvas.width = image.width;
+        canvas.height = image.height;
+    
+        // Draw the texture onto the canvas
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    
+        // Get pixel data
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+    
+        // Calculate the average color
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            r += data[i];     // Red
+            g += data[i + 1]; // Green
+            b += data[i + 2]; // Blue
+            count++;
+        }
+    
+        // Average the colors
+        r = Math.floor(r / count);
+        g = Math.floor(g / count);
+        b = Math.floor(b / count);
+    
+        // Convert to a CSS-compatible color
+        const color = `rgb(${r}, ${g}, ${b})`;
+    
+        // Return the color via callback
+        if (callback) callback(color);
+    }
+
     calculateViewportBoundaries() {
         const aspect = window.innerWidth / window.innerHeight;
         const vFOV = THREE.MathUtils.degToRad(this.camera.fov); // Vertical field of view in radians
@@ -206,8 +276,8 @@ class UnderConstructionScene extends ThreejsScene {
         const width = height * aspect; // Visible width
     
         this.boundaries = {
-            minX: -(width / 2 - 8),
-            maxX: width / 2 - 8,
+            minX: -(width / 2 - 6),
+            maxX: width / 2 - 6,
             minY: 0, // Prevent going below the ground
             maxY: height,
             minZ: -40, // Keep Z boundaries fixed
@@ -237,25 +307,31 @@ class UnderConstructionScene extends ThreejsScene {
         const intersects = this.raycaster.intersectObjects(this.geometries);
     
         if (intersects.length > 0) {
-            // Select the first intersected cube
+            // Select the first intersected object
             this.selectedCube = intersects[0].object;
+
+            // Dynamically align the intersection plane with the object's current position
+            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.selectedCube.position.z);
     
-            // Calculate the offset between the cube and the mouse
-            const intersectionPoint = intersects[0].point;
+            // Calculate the intersection point
+            const intersectionPoint = new THREE.Vector3();
+            this.raycaster.ray.intersectPlane(plane, intersectionPoint);
+    
+            // Calculate the offset between the intersection point and the object's position
             this.offset.copy(intersectionPoint).sub(this.selectedCube.position);
     
-            // Disable physics for the selected cube
+            // Disable physics for the selected object
             const index = this.geometries.indexOf(this.selectedCube);
             if (index !== -1) {
                 this.physicsBodies[index].type = CANNON.Body.KINEMATIC; // Make the body kinematic
             }
-        }
 
-        if (this.selectedCube) {
-            // Show the drop zone
-            this.dropZone.style.opacity = '1';
-            this.dropZone.style.pointerEvents = 'auto'; // Enable pointer events for the drop zone
-        }        
+            if (this.selectedCube.userData.url) {
+                // Show the drop zone
+                this.dropZone.style.opacity = '1';
+                this.dropZone.style.pointerEvents = 'auto'; // Enable pointer events for the drop zone
+            }
+        }
     }
     
     onMouseMove(event) {
@@ -264,32 +340,23 @@ class UnderConstructionScene extends ThreejsScene {
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     
+            // Dynamically align the intersection plane with the object's current position
+            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.selectedCube.position.z);
+    
             // Use raycaster to find the intersection point in 3D space
             this.raycaster.setFromCamera(this.mouse, this.camera);
             const intersectionPoint = new THREE.Vector3();
-            this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), intersectionPoint);
+            this.raycaster.ray.intersectPlane(plane, intersectionPoint);
     
-            // Update the position of the selected cube
-            //this.selectedCube.position.copy(intersectionPoint.sub(this.offset));
-    
-            // Prevent the cube from going below the ground
-            if (this.selectedCube.position.y < 2.2) {
-                this.selectedCube.position.y = 2.2; // Clamp the y position to 0
-            }
-        
-            // Preserve the original Z position of the selected object
-            const originalZ = this.selectedCube.position.z;
-
-            // Update the position of the selected cube (only X and Y)
+            // Update the position of the selected object
             this.selectedCube.position.copy(intersectionPoint.sub(this.offset));
-            this.selectedCube.position.z = originalZ; // Keep the Z position fixed
-
-            // Clamp the cube's position within the boundaries
+    
+            // Clamp the object's position within the boundaries
             const { minX, maxX, minY, maxY, minZ, maxZ } = this.boundaries;
             this.selectedCube.position.x = THREE.MathUtils.clamp(this.selectedCube.position.x, minX, maxX);
             this.selectedCube.position.y = THREE.MathUtils.clamp(this.selectedCube.position.y, minY, maxY);
             this.selectedCube.position.z = THREE.MathUtils.clamp(this.selectedCube.position.z, minZ, maxZ);
-
+    
             // Update the physics body position
             const index = this.geometries.indexOf(this.selectedCube);
             if (index !== -1) {
@@ -314,7 +381,9 @@ class UnderConstructionScene extends ThreejsScene {
                 mouseY >= dropZoneRect.top &&
                 mouseY <= dropZoneRect.bottom
             ) {
-                window.open(this.selectedCube.userData.url, '_blank'); // Open other links
+                if (this.selectedCube.userData.url) {
+                    window.open(this.selectedCube.userData.url); // Open other links 
+                }
             }
     
             // Hide the drop zone
@@ -436,7 +505,7 @@ class UnderConstructionScene extends ThreejsScene {
             this.scene.add(newCube);
     
             // Add a physics body for the cube
-            const cubeShape = new CANNON.Box(new CANNON.Vec3(cubeSize/2, cubeSize/2, cubeSize/2)); // Half extents of the cube (match the size of the RoundedBoxGeometry)
+            const cubeShape = new CANNON.Box(new CANNON.Vec3(cubeSize/2, (cubeSize/2), cubeSize/2)); // Half extents of the cube (match the size of the RoundedBoxGeometry)
             const cubeBody = new CANNON.Body({
                 mass: 1, // Dynamic body
                 position: new CANNON.Vec3(cubePosition.x, cubePosition.y, cubePosition.z),
@@ -559,7 +628,7 @@ class UnderConstructionScene extends ThreejsScene {
             const material = new THREE.MeshPhysicalMaterial({ color: color });
             const mesh = new THREE.Mesh(textObj, material);
             mesh.position.set(position[0], position[1], position[2]);
-            mesh.rotation.set(0, .5, 0);
+            mesh.rotation.set(0, 1, 0);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
     
@@ -595,7 +664,7 @@ class UnderConstructionScene extends ThreejsScene {
             boundingBox.getSize(boxSize);
     
             // Add physics body for the text
-            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, boxSize.y / 2, boxSize.z / 2));
+            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, (boxSize.y / 2) - 0.55, boxSize.z / 2));
             const textBody = new CANNON.Body({
                 mass: 1, // Dynamic body
                 position: new CANNON.Vec3(position[0], position[1] + boxSize.y / 2, position[2]), // Adjust position to match the bounding box

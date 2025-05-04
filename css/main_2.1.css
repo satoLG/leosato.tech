@@ -204,12 +204,12 @@ img#drop-zone-icon {
 
 div#drop-zone:hover {
     box-shadow: rgb(255 255 255 / 61%) 0px 0px 15px;
-    font-size: 20px;
+    font-size: 18px;
 }
 
 div#drop-zone.hover {
-    box-shadow: rgb(255 255 255 / 61%) 0px 0px 15px;
-    font-size: 20px;
+    box-shadow: #ffffff9c 0px 0px 15px;
+    font-size: 18px;
 }
 
 a#drop-zone-link {

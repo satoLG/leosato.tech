@@ -10,7 +10,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
-        <link href="./css/main_2.css" rel="stylesheet">
+        <link href="./css/main_2.1.css" rel="stylesheet">
     </head>
     <body>
         <!-- <div id="header">
@@ -93,7 +93,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main_1.7.js">
+        <script type="module" src="./js/main_1.8.js">
         </script>
     </body>
 </html>
