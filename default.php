@@ -10,7 +10,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
-        <link href="./css/main_1.9.css" rel="stylesheet">
+        <link href="./css/main_2.css" rel="stylesheet">
     </head>
     <body>
         <!-- <div id="header">
@@ -72,6 +72,10 @@
                 <div id="progress-bar"></div>
             </div>
         </div>
+        <div id="drop-zone" style="opacity: 0;">
+            <img id="drop-zone-icon" src="img/external-link.png" alt="Drop Zone Icon">
+            <a id="drop-zone-link" href="" target="_blank">Solte aqui!</a>
+        </div>
         <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
 		<!-- Import maps polyfill -->
 		<!-- Remove this when import maps will be widely supported -->
@@ -89,7 +93,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main_1.6.js">
+        <script type="module" src="./js/main_1.7.js">
         </script>
     </body>
 </html>

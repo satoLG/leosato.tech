@@ -62,22 +62,52 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
-        this.addNewCube('textures/main/linkedin.png', '', 2.2, new THREE.Vector3(-5, 25.5, 20));
-        this.addNewCube('textures/main/github.png', '', 2.2, new THREE.Vector3(0, 25.5, 20));
-        this.addNewCube('textures/main/codepen.png', '', 2.2, new THREE.Vector3(5, 25.5, 20));
-        this.addNewCube('textures/main/instagram.jpg', '', 2.2, new THREE.Vector3(5, 20.5, 20));
-        this.addNewCube('textures/main/whatsapp.jpeg', '', 2.2, new THREE.Vector3(0, 20.5, 20));
-        this.addNewCube('textures/main/gmail.png', '', 2.2, new THREE.Vector3(-5, 20.5, 20));
+        this.addNewCube(
+            'textures/main/linkedin.png', 
+            'https://www.linkedin.com/in/leonardo-gutierrez-sato/',
+            'LinkedIn',
+            2.2, new THREE.Vector3(-5.1, 25.5, 20.1)
+        );
+        this.addNewCube(
+            'textures/main/github.png', 
+            'https://github.com/satoLG', 
+            'GitHub',
+            2.2, new THREE.Vector3(0.1, 25.5, 20.1)
+        );
+        this.addNewCube(
+            'textures/main/codepen.png', 
+            'https://codepen.io/satoLG', 
+            'CodePen',
+            2.2, new THREE.Vector3(5.1, 25.5, 20.1)
+        );
+        this.addNewCube(
+            'textures/main/instagram.jpg', 
+            'https://www.instagram.com/sato_leo_kun/',
+            'Instagram',
+            2.2, new THREE.Vector3(5, 20.5, 20)
+        );
+        this.addNewCube(
+            'textures/main/whatsapp.jpeg', 
+            'https://wa.me/11952354083', 
+            'WhatsApp',
+            2.2, new THREE.Vector3(0, 20.5, 20)
+        );
+        this.addNewCube(
+            'textures/main/gmail.png', 
+            'mailto:leonardogsato@gmail.com', 
+            'leonardogsato@gmail.com',
+            2.2, new THREE.Vector3(-5, 20.5, 20)
+        );
 
         // Add text
         const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
         this.addText(
             `LEO`, 
-            fontPath, [-1.8, 15, 33], 1, .5, 'white'
+            fontPath, [-1.8, 15, 33], 1, .5, '#828282'
         );
         this.addText(
             `SATO`, 
-            fontPath, [-1.8, 15, 38], 1, .5, 'white'
+            fontPath, [-1.8, 15, 38], 1, .5, '#828282'
         );        
 
         // Add debug GUI features
@@ -87,15 +117,74 @@ class UnderConstructionScene extends ThreejsScene {
             }, 2000);
         }
 
-        // Create the drag-and-drop div
-        const dropZone = document.createElement('div');
-        dropZone.id = 'drop-zone';
-        dropZone.style.display = 'none'; // Initially hidden
-        dropZone.innerText = 'Solte aqui para abrir o link!';
-        document.body.appendChild(dropZone);
+        this.dropZone = document.querySelector('#drop-zone');
+        this.dropZone.addEventListener('mouseover', () => {
+            if (this.selectedCube) {
+                this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
+                this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
+                this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
+            }
+        });
 
-        this.dropZone = dropZone;
+        // Add touchstart event for touch devices
+        this.dropZone.addEventListener('touchstart', (event) => {
+            if (this.selectedCube) {
+                this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
+                this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
+                this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
+            }
 
+            // Prevent default behavior to avoid scrolling
+            event.preventDefault();
+        });
+
+        // Add touchmove event for touch devices
+        window.addEventListener('touchmove', (event) => {
+            if (this.selectedCube) {
+                // Get the touch position
+                const touch = event.touches[0];
+                const touchX = touch.clientX;
+                const touchY = touch.clientY;
+
+                // Get the drop zone's bounding rectangle
+                const dropZoneRect = this.dropZone.getBoundingClientRect();
+
+                // Check if the touch is over the drop zone
+                if (
+                    touchX >= dropZoneRect.left &&
+                    touchX <= dropZoneRect.right &&
+                    touchY >= dropZoneRect.top &&
+                    touchY <= dropZoneRect.bottom
+                ) {
+                    this.dropZone.classList.add('hover');
+                    // Update the drop zone content
+                    this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
+                    this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
+                    this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
+                }
+                else {
+                    this.dropZone.classList.remove('hover');
+                    // Reset the drop zone content if not hovering
+                    this.dropZone.querySelector('#drop-zone-link').textContent = 'Solte aqui!';
+                    this.dropZone.querySelector('#drop-zone-link').href = '';
+                    this.dropZone.querySelector('#drop-zone-icon').src = 'img/external-link.png';
+                }
+            }
+        });
+
+        // Simulate hover effect on touchstart
+        this.dropZone.addEventListener('touchstart', () => {
+            this.dropZone.classList.add('hover');
+        });
+
+        // Remove hover effect on touchend or touchcancel
+        this.dropZone.addEventListener('touchend', () => {
+            this.dropZone.classList.remove('hover');
+        });
+
+        this.dropZone.addEventListener('touchcancel', () => {
+            this.dropZone.classList.remove('hover');
+        });
 
         // Add mouse event listeners
         window.addEventListener('mousedown', this.onMouseDown.bind(this));
@@ -164,7 +253,8 @@ class UnderConstructionScene extends ThreejsScene {
 
         if (this.selectedCube) {
             // Show the drop zone
-            this.dropZone.style.display = 'block';
+            this.dropZone.style.opacity = '1';
+            this.dropZone.style.pointerEvents = 'auto'; // Enable pointer events for the drop zone
         }        
     }
     
@@ -224,12 +314,12 @@ class UnderConstructionScene extends ThreejsScene {
                 mouseY >= dropZoneRect.top &&
                 mouseY <= dropZoneRect.bottom
             ) {
-                // Open the link in a new tab
-                window.open('https://www.linkedin.com/in/leonardo-gutierrez-sato/', '_blank');
+                window.open(this.selectedCube.userData.url, '_blank'); // Open other links
             }
     
             // Hide the drop zone
-            this.dropZone.style.display = 'none';
+            this.dropZone.style.opacity = '0';
+            this.dropZone.style.pointerEvents = 'none'; // Disable pointer events for the drop zone
     
             // Re-enable physics for the selected cube
             const index = this.geometries.indexOf(this.selectedCube);
@@ -286,7 +376,7 @@ class UnderConstructionScene extends ThreejsScene {
         }
     }
 
-    addNewCube(texturePath, cubeUrl, cubeSize, cubePosition) {
+    addNewCube(texturePath, cubeUrl, cubeName, cubeSize, cubePosition) {
         const textureLoader = new THREE.TextureLoader();
         const texture = textureLoader.load(texturePath);
         texture.magFilter = THREE.NearestFilter; // Pixelated look for the cube
@@ -327,7 +417,7 @@ class UnderConstructionScene extends ThreejsScene {
             const cubeGeometry = new RoundedBoxGeometry(cubeSize, cubeSize, cubeSize, 5, 0.2); // Width, Height, Depth, Segments, Radius
             const cubeMaterial = new THREE.MeshStandardMaterial({
                 map: processedTexture, // Use the processed texture
-                color: new THREE.Color('white'), // Set the base color to white
+                color: new THREE.Color('#828282'), // Set the base color to white
             });
             const newCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
             newCube.position.set(cubePosition.x, cubePosition.y, cubePosition.z);
@@ -335,8 +425,13 @@ class UnderConstructionScene extends ThreejsScene {
             newCube.castShadow = true; // Allow the cube to cast shadows
             newCube.receiveShadow = true; // Allow the cube to receive shadows
     
-            newCube.name = `Cube ${this.geometries.length + 1}`; // Name based on the number of cubes
-    
+            newCube.name = `Cube ${cubeName}`; // Name based on the number of cubes
+            newCube.userData = {
+                name: cubeName, // Name of the cube
+                url: cubeUrl, // URL to open on click
+                texturePath: texturePath, // Path to the original texture
+            };
+
             // Add the cube to the scene
             this.scene.add(newCube);
     
@@ -464,6 +559,7 @@ class UnderConstructionScene extends ThreejsScene {
             const material = new THREE.MeshPhysicalMaterial({ color: color });
             const mesh = new THREE.Mesh(textObj, material);
             mesh.position.set(position[0], position[1], position[2]);
+            mesh.rotation.set(0, .5, 0);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
     
@@ -528,7 +624,7 @@ class UnderConstructionScene extends ThreejsScene {
     }
 
     createLights() {
-        const light = new THREE.DirectionalLight( new THREE.Color( 'white' ), 0.15 );
+        const light = new THREE.DirectionalLight( new THREE.Color( 'white' ), 0.2 );
         light.position.set( 1, 500, 1 );
     
         light.castShadow = true;
@@ -552,7 +648,7 @@ class UnderConstructionScene extends ThreejsScene {
         bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
         // set bulbLight position to the street_lamp position
         bulbLight.position.set( 3, 5, 45 );
-        bulbLight.intensity = 0.8;
+        bulbLight.intensity = 0.35;
         bulbLight.distance = 500;
         bulbLight.castShadow = true;
         bulbLight.shadowMapVisible = true;
