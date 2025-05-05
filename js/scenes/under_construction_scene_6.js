@@ -62,7 +62,7 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
-        let cubeSize = Math.abs((window.innerWidth + window.innerHeight) * 0.0025); // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth + window.innerHeight) * (this.isMobile() ? 0.0025 : 0.0015)); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 
@@ -218,16 +218,52 @@ class UnderConstructionScene extends ThreejsScene {
         });
 
         // Add mouse event listeners
-        window.addEventListener('mousedown', this.onMouseDown.bind(this));
-        window.addEventListener('mousemove', this.onMouseMove.bind(this));
-        window.addEventListener('mouseup', this.onMouseUp.bind(this));
+        // window.addEventListener('mousedown', this.onMouseDown.bind(this));
+        // window.addEventListener('mousemove', this.onMouseMove.bind(this));
+        // window.addEventListener('mouseup', this.onMouseUp.bind(this));
         
-        window.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
-        window.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
-        window.addEventListener('touchend', this.onTouchEnd.bind(this));
+        // window.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
+        // window.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
+        // window.addEventListener('touchend', this.onTouchEnd.bind(this));
+
+        // Add mouse event listeners
+        window.addEventListener('mousedown', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            this.onMouseDown(event);
+        });
+
+        window.addEventListener('mousemove', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            this.onMouseMove(event);
+        });
+
+        window.addEventListener('mouseup', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            this.onMouseUp(event);
+        });
+
+        // Add touch event listeners
+        window.addEventListener('touchstart', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            this.onTouchStart(event);
+        }, { passive: false }); // Important: Set passive to false to allow preventDefault()
+
+        window.addEventListener('touchmove', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            this.onTouchMove(event);
+        }, { passive: false });
+
+        window.addEventListener('touchend', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            this.onTouchEnd(event);
+        }, { passive: false });
 
         // Update boundaries on window resize
         window.addEventListener('resize', this.onWindowResize.bind(this));
+    }
+
+    isMobile() {
+        return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
     getPredominantColor(texture, callback) {
@@ -390,7 +426,18 @@ class UnderConstructionScene extends ThreejsScene {
                 mouseY <= dropZoneRect.bottom
             ) {
                 if (this.selectedCube?.userData.url) {
-                    window.open(this.selectedCube?.userData.url); // Open other links 
+                    try {
+                        // Attempt to open the URL in a new tab
+                        const newWindow = window.open(this.selectedCube?.userData.url, '_blank');
+                        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                            // Fallback: Navigate to the URL in the same tab
+                            window.location.href = this.selectedCube?.userData.url;
+                        }
+                    } catch (error) {
+                        console.error('Failed to open URL:', error);
+                        // Fallback: Navigate to the URL in the same tab
+                        window.location.href = this.selectedCube?.userData.url;
+                    } 
                 }
             }
     
