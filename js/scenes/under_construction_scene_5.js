@@ -328,7 +328,10 @@ class UnderConstructionScene extends ThreejsScene {
             // Disable physics for the selected object
             const index = this.geometries.indexOf(this.selectedCube);
             if (index !== -1) {
-                this.physicsBodies[index].type = CANNON.Body.KINEMATIC; // Make the body kinematic
+                const body = this.physicsBodies[index];
+                body.type = CANNON.Body.KINEMATIC; // Make the body kinematic
+                body.velocity.set(0, 0, 0); // Stop any linear motion
+                body.angularVelocity.set(0, 0, 0); // Stop any rotational motion
             }
 
             if (this.selectedCube?.userData.url) {
