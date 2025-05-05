@@ -62,7 +62,7 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
-        let cubeSize = Math.min(window.innerWidth, window.innerHeight) * 0.005; // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth + window.innerHeight) * 0.002); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 
@@ -108,14 +108,19 @@ class UnderConstructionScene extends ThreejsScene {
         );
 
         // Add text
-        const fontPath = 'https://threejsfundamentals.org/threejs/resources/threejs/fonts/helvetiker_regular.typeface.json';
+        const fontPaths = {
+            helvetiker: 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json',
+            optimer: 'https://threejs.org/examples/fonts/optimer_regular.typeface.json',
+            gentilis: 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json',
+        };        
+        
         this.addText(
-            `LEO`, 
-            fontPath, [-1.8, 15, 33], 1, .5, '#828282'
+            `leo`, 
+            fontPaths.helvetiker, [1.5, 15, 35], .8, [0, Math.PI/.5, 0], .27, '#828282'
         );
         this.addText(
-            `SATO`, 
-            fontPath, [-1.8, 15, 38], 1, .5, '#828282'
+            `sato`, 
+            fontPaths.helvetiker, [0, 15, 38], .8, [0, Math.PI/.5, 0], .27, '#828282'
         );        
 
         // Add debug GUI features
@@ -127,8 +132,8 @@ class UnderConstructionScene extends ThreejsScene {
 
         this.dropZone = document.querySelector('#drop-zone');
         this.dropZone.addEventListener('mouseover', () => {
-            if (this.selectedCube.userData.url) {
-                if (this.selectedCube.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
+            if (this.selectedCube?.userData.url) {
+                if (this.selectedCube?.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
                     const texture = this.selectedCube.material.map;
                 
                     this.getPredominantColor(texture, (color) => {
@@ -156,7 +161,7 @@ class UnderConstructionScene extends ThreejsScene {
 
         // Add touchstart event for touch devices
         this.dropZone.addEventListener('touchstart', (event) => {
-            if (this.selectedCube.userData.url) {
+            if (this.selectedCube?.userData.url) {
                 this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
                 this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
                 this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
@@ -168,7 +173,7 @@ class UnderConstructionScene extends ThreejsScene {
 
         // Add touchmove event for touch devices
         window.addEventListener('touchmove', (event) => {
-            if (this.selectedCube.userData.url) {
+            if (this.selectedCube?.userData.url) {
                 // Get the touch position
                 const touch = event.touches[0];
                 const touchX = touch.clientX;
@@ -184,7 +189,7 @@ class UnderConstructionScene extends ThreejsScene {
                     touchY >= dropZoneRect.top &&
                     touchY <= dropZoneRect.bottom
                 ) {
-                    if (this.selectedCube.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
+                    if (this.selectedCube?.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
                         const texture = this.selectedCube.material.map;
                     
                         this.getPredominantColor(texture, (color) => {
@@ -318,7 +323,7 @@ class UnderConstructionScene extends ThreejsScene {
             this.raycaster.ray.intersectPlane(plane, intersectionPoint);
     
             // Calculate the offset between the intersection point and the object's position
-            this.offset.copy(intersectionPoint).sub(this.selectedCube.position);
+            this.offset.copy(intersectionPoint).sub(this.selectedCube?.position);
     
             // Disable physics for the selected object
             const index = this.geometries.indexOf(this.selectedCube);
@@ -326,7 +331,7 @@ class UnderConstructionScene extends ThreejsScene {
                 this.physicsBodies[index].type = CANNON.Body.KINEMATIC; // Make the body kinematic
             }
 
-            if (this.selectedCube.userData.url) {
+            if (this.selectedCube?.userData.url) {
                 // Show the drop zone
                 this.dropZone.style.opacity = '1';
                 this.dropZone.style.pointerEvents = 'auto'; // Enable pointer events for the drop zone
@@ -353,14 +358,14 @@ class UnderConstructionScene extends ThreejsScene {
     
             // Clamp the object's position within the boundaries
             const { minX, maxX, minY, maxY, minZ, maxZ } = this.boundaries;
-            this.selectedCube.position.x = THREE.MathUtils.clamp(this.selectedCube.position.x, minX, maxX);
-            this.selectedCube.position.y = THREE.MathUtils.clamp(this.selectedCube.position.y, minY, maxY);
-            this.selectedCube.position.z = THREE.MathUtils.clamp(this.selectedCube.position.z, minZ, maxZ);
+            this.selectedCube.position.x = THREE.MathUtils.clamp(this.selectedCube?.position.x, minX, maxX);
+            this.selectedCube.position.y = THREE.MathUtils.clamp(this.selectedCube?.position.y, minY, maxY);
+            this.selectedCube.position.z = THREE.MathUtils.clamp(this.selectedCube?.position.z, minZ, maxZ);
     
             // Update the physics body position
             const index = this.geometries.indexOf(this.selectedCube);
             if (index !== -1) {
-                this.physicsBodies[index].position.copy(this.selectedCube.position);
+                this.physicsBodies[index].position.copy(this.selectedCube?.position);
             }
         }
     }
@@ -381,8 +386,8 @@ class UnderConstructionScene extends ThreejsScene {
                 mouseY >= dropZoneRect.top &&
                 mouseY <= dropZoneRect.bottom
             ) {
-                if (this.selectedCube.userData.url) {
-                    window.open(this.selectedCube.userData.url); // Open other links 
+                if (this.selectedCube?.userData.url) {
+                    window.open(this.selectedCube?.userData.url); // Open other links 
                 }
             }
     
@@ -610,9 +615,7 @@ class UnderConstructionScene extends ThreejsScene {
         });
     }
 
-    addText(text, fontPath, position, size, height, color, border = undefined) {
-        let scene = this.scene;
-        let textMeshes = this.textMeshes;
+    addText(text, fontPath, position, size, rotation, height, color, border = undefined) {
         const textLoader = new FontLoader();
     
         textLoader.load(fontPath, (font) => {
@@ -628,7 +631,7 @@ class UnderConstructionScene extends ThreejsScene {
             const material = new THREE.MeshPhysicalMaterial({ color: color });
             const mesh = new THREE.Mesh(textObj, material);
             mesh.position.set(position[0], position[1], position[2]);
-            mesh.rotation.set(0, 1, 0);
+            mesh.rotation.set(rotation[0], rotation[1], rotation[2]); // Apply custom rotation
             mesh.castShadow = true;
             mesh.receiveShadow = true;
     
@@ -654,8 +657,8 @@ class UnderConstructionScene extends ThreejsScene {
             }
     
             // Add the text mesh to the scene
-            scene.add(mesh);
-            textMeshes.push(mesh);
+            this.scene.add(mesh);
+            this.textMeshes.push(mesh);
     
             // Dynamically calculate the bounding box of the text
             mesh.geometry.computeBoundingBox();
@@ -664,12 +667,15 @@ class UnderConstructionScene extends ThreejsScene {
             boundingBox.getSize(boxSize);
     
             // Add physics body for the text
-            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, (boxSize.y / 2) - 0.55, boxSize.z / 2));
+            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, ((boxSize.y / 2) - 0.35), boxSize.z / 2));
             const textBody = new CANNON.Body({
                 mass: 1, // Dynamic body
-                position: new CANNON.Vec3(position[0], position[1] + boxSize.y / 2, position[2]), // Adjust position to match the bounding box
+                position: new CANNON.Vec3(position[0], position[1] + ((boxSize.y / 2) - 0.35), position[2]), // Adjust position to match the bounding box
                 shape: textShape,
             });
+    
+            // Apply rotation to the physics body
+            textBody.quaternion.setFromEuler(rotation[0], rotation[1], rotation[2]);
     
             // Add bouncing effect by setting restitution
             const textPhysicsMaterial = new CANNON.Material();
