@@ -62,7 +62,7 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
-        let cubeSize = Math.abs((window.innerWidth + window.innerHeight) * (this.isMobile() ? 0.0025 : 0.0015)); // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.006 : 0.002)); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 
@@ -116,11 +116,11 @@ class UnderConstructionScene extends ThreejsScene {
         
         this.addText(
             `leo`, 
-            fontPaths.helvetiker, [1.5, 15, 35], .8, [0, Math.PI/.5, 0], .27, '#828282'
+            fontPaths.helvetiker, [1.25, 15, 35], .8, [0, Math.PI/.5, 0], .27, '#828282'
         );
         this.addText(
             `sato`, 
-            fontPaths.helvetiker, [0, 15, 38], .8, [0, Math.PI/.5, 0], .27, '#828282'
+            fontPaths.helvetiker, [0.25, 15, 38], .8, [0, Math.PI/.5, 0], .27, '#828282'
         );        
 
         // Add debug GUI features
