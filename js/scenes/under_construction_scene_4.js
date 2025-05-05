@@ -62,7 +62,7 @@ class UnderConstructionScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
-        let cubeSize = Math.abs((window.innerWidth + window.innerHeight) * 0.002); // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth + window.innerHeight) * 0.0025); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 

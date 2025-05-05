@@ -93,7 +93,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main_1.9.js">
+        <script type="module" src="./js/main_2.js">
         </script>
     </body>
 </html>
