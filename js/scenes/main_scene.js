@@ -4,6 +4,7 @@ import * as CANNON from 'cannon-es';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Sky } from 'three/addons/objects/Sky.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
@@ -49,15 +50,40 @@ class MainScene extends ThreejsScene {
     populateScene() {
         // Scene setup
         const pmremGenerator = new THREE.PMREMGenerator( this.renderer );
-        this.scene.background = new THREE.Color('#172836');
-        this.scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.04 ).texture;
+        // this.scene.background = new THREE.Color('#172836');
+        this.scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.07 ).texture;
+
+        let sky = new Sky();
+        sky.scale.setScalar( 450000 );
+        this.scene.add( sky );
+
+        // Create a realistic day sky
+        sky.material.uniforms['turbidity'].value = 5; // Lower turbidity for clearer sky
+        sky.material.uniforms['rayleigh'].value = 1.5; // Reduced for less blue scattering
+        sky.material.uniforms['mieCoefficient'].value = 0.15; // Lower for less haze
+        sky.material.uniforms['mieDirectionalG'].value = 0.7; // Directional scattering
+        sky.material.uniforms['sunPosition'].value.set(0.3, -0.4, -0.2); // Higher sun position for daylight
 
         // Add exponential fog
-        this.scene.fog = new THREE.FogExp2('#172836', 0.0042);
+        // this.scene.fog = new THREE.FogExp2('#172836', 0.0042);
 
         // Add camera
         this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2000 );
-        this.camera.position.set( 0, 5, 50 );
+        this.camera.position.set( 0, 55, 10 );
+        this.camera.lookAt( 0, -5, 0 );
+
+        // Add OrbitControls
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.target.set(0, -5, 0);
+        this.controls.enableZoom = true; // Enable zooming
+        this.controls.enablePan = true; // Enable panning
+        this.controls.maxPolarAngle = Math.PI / 2.5; // i need it just a bit above the ground level
+        this.controls.minPolarAngle = Math.PI / 2.5; // i need it a little above ground level
+        this.controls.minDistance = 30; // Minimum zoom distance
+        this.controls.maxDistance = 80; // Maximum zoom distance
+        this.controls.update();
 
         this.calculateViewportBoundaries();
 
@@ -88,58 +114,58 @@ class MainScene extends ThreejsScene {
         //     }
         // );
 
-        // Setup model loader
+        // //Setup model loader
         // const dracoLoader = new DRACOLoader();
         // dracoLoader.setDecoderPath( 'jsm/' );
         // const loader = new GLTFLoader(loadingManager);
         // loader.setDRACOLoader( dracoLoader );
 
-        // Load the laptop model
-        // this.loadModel(loader, 'models/under_construction/low_poly_laptop.glb', [0, 0, 20], [10, 10, 10], [0, -Math.PI/2, 0], true);
+        // //Load the laptop model
+        // this.loadModel(loader, 'models/jacaranda_tree_1k.gltf', [0, 20, 20], [1, 1, 1], [0, -Math.PI/2, 0], true);
         
-        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.006 : 0.0025)); // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.0115 : 0.0035)); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 
             'https://www.linkedin.com/in/leonardo-gutierrez-sato/',
             'LinkedIn',
             cubeSize, 
-            new THREE.Vector3(-5.1, 25.5, 20.1)
+            new THREE.Vector3(-10.1, 47.5, -10.1)
         );
         this.addNewCube(
             'textures/main/github.png', 
             'https://github.com/satoLG', 
             'GitHub',
             cubeSize, 
-            new THREE.Vector3(0.1, 25.5, 20.1)
+            new THREE.Vector3(0.1, 47.5, -10.1)
         );
         this.addNewCube(
             'textures/main/codepen.png', 
             'https://codepen.io/satoLG', 
             'CodePen',
             cubeSize, 
-            new THREE.Vector3(5.1, 25.5, 20.1)
+            new THREE.Vector3(10.1, 47.5, -10.1)
         );
         this.addNewCube(
             'textures/main/instagram.jpg', 
             'https://www.instagram.com/sato_leo_kun/',
             'Instagram',
             cubeSize, 
-            new THREE.Vector3(5, 20.5, 20)
+            new THREE.Vector3(10, 32.5, -8)
         );
         this.addNewCube(
             'textures/main/whatsapp.jpeg', 
             'https://wa.me/11952354083', 
             'WhatsApp',
             cubeSize, 
-            new THREE.Vector3(0, 20.5, 20)
+            new THREE.Vector3(0, 32.5, -8)
         );
         this.addNewCube(
             'textures/main/gmail.png', 
             'mailto:leonardogsato@gmail.com', 
             'leonardogsato@gmail.com',
             cubeSize, 
-            new THREE.Vector3(-5, 20.5, 20)
+            new THREE.Vector3(-10, 32.5, -8)
         );
 
         // Add text
@@ -151,33 +177,34 @@ class MainScene extends ThreejsScene {
         
         this.addText(
             `leo`, 
-            fontPaths.helvetiker, [1.25, 15, 35], .8, [0, Math.PI/.5, 0], .27, '#828282'
+            fontPaths.helvetiker, [0, 1, 25], 2.8, [0, Math.PI/.5, 0], .27, '#184b1a'
         );
         this.addText(
             `sato`, 
-            fontPaths.helvetiker, [0.25, 15, 38], .8, [0, Math.PI/.5, 0], .27, '#828282'
+            fontPaths.helvetiker, [-3, 1, 35], 2.8, [0, Math.PI/.5, 0], .27, '#8b4513'
         );        
 
         // Add debug GUI features
-        if (this.debugGui) {
-            setTimeout(() => {
-                this.addDebugGui();                
-            }, 2000);
-        }
+        // if (this.debugGui) {
+        //     setTimeout(() => {
+        //         this.addDebugGui();                
+        //     }, 2000);
+        // }
 
         // Add CSS3DRenderer for iframe rendering
-        this.cssRenderer = new CSS3DRenderer();
-        this.cssRenderer.setSize(window.innerWidth, window.innerHeight);
-        this.cssRenderer.domElement.style.position = 'absolute';
-        this.cssRenderer.domElement.style.top = '0';
+        // this.cssRenderer = new CSS3DRenderer();
+        // this.cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        // this.cssRenderer.domElement.style.position = 'absolute';
+        // this.cssRenderer.domElement.style.top = '0';
 
-        const containerCss = document.getElementById( 'css' );
-        containerCss.appendChild(this.cssRenderer.domElement);
+        // const containerCss = document.getElementById( 'css' );
+        // containerCss.appendChild(this.cssRenderer.domElement);
        
         // this.createIframe(``)
 
         this.dropZone = document.querySelector('#drop-zone');
         this.dropZone.addEventListener('mouseover', () => {
+            console.log(this.selectedCube)
             if (this.selectedCube?.userData.url) {
                 if (this.selectedCube?.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
                     const texture = this.selectedCube.material.map;
@@ -217,7 +244,7 @@ class MainScene extends ThreejsScene {
             event.preventDefault();
         });
 
-        // Add touchmove event for touch devices
+        //Add touchmove event for touch devices
         window.addEventListener('touchmove', (event) => {
             if (this.selectedCube?.userData.url) {
                 // Get the touch position
@@ -265,33 +292,36 @@ class MainScene extends ThreejsScene {
 
         // Add mouse event listeners
         window.addEventListener('mousedown', (event) => {
-            event.preventDefault(); // Prevent scrolling
+            // Don't prevent default - let OrbitControls handle it if no object is selected
             this.onMouseDown(event);
         });
 
         window.addEventListener('mousemove', (event) => {
-            event.preventDefault(); // Prevent scrolling
+            // Don't prevent default - let OrbitControls handle it if no object is selected
             this.onMouseMove(event);
         });
 
         window.addEventListener('mouseup', (event) => {
-            event.preventDefault(); // Prevent scrolling
+            // Don't prevent default - let OrbitControls handle it if no object is selected
             this.onMouseUp(event);
         });
 
         // Add touch event listeners
         window.addEventListener('touchstart', (event) => {
-            event.preventDefault(); // Prevent scrolling
+            // Only prevent default if we're interacting with an object
             this.onTouchStart(event);
-        }, { passive: false }); // Important: Set passive to false to allow preventDefault()
+        }, { passive: false });
 
         window.addEventListener('touchmove', (event) => {
-            event.preventDefault(); // Prevent scrolling
+            // Only prevent default if we're dragging an object
+            if (this.selectedCube) {
+                event.preventDefault();
+            }
             this.onTouchMove(event);
         }, { passive: false });
 
         window.addEventListener('touchend', (event) => {
-            event.preventDefault(); // Prevent scrolling
+            // Only prevent default if we were dragging an object
             this.onTouchEnd(event);
         }, { passive: false });
 
@@ -539,6 +569,13 @@ class MainScene extends ThreejsScene {
         const intersects = this.raycaster.intersectObjects(this.geometries);
     
         if (intersects.length > 0) {
+            // Prevent OrbitControls from handling this event
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Disable OrbitControls when dragging objects
+            this.controls.enabled = false;
+            
             // Select the first intersected object
             this.selectedCube = intersects[0].object;
 
@@ -561,6 +598,7 @@ class MainScene extends ThreejsScene {
                 body.angularVelocity.set(0, 0, 0); // Stop any rotational motion
             }
 
+            console.log('Selected Cube:', this.selectedCube);
             if (this.selectedCube?.userData.url) {
                 // Show the drop zone
                 this.dropZone.style.opacity = '1';
@@ -571,6 +609,9 @@ class MainScene extends ThreejsScene {
     
     onMouseMove(event) {
         if (this.selectedCube) {
+            // Prevent default only when dragging
+            event.preventDefault();
+            
             // Calculate mouse position in normalized device coordinates
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -597,11 +638,57 @@ class MainScene extends ThreejsScene {
             if (index !== -1) {
                 this.physicsBodies[index].position.copy(this.selectedCube?.position);
             }
+
+            // Add drop zone detection for mouse events (similar to touch events)
+            if (this.selectedCube?.userData.url) {
+                // Get the mouse position
+                const mouseX = event.clientX;
+                const mouseY = event.clientY;
+
+                // Get the drop zone's bounding rectangle
+                const dropZoneRect = this.dropZone.getBoundingClientRect();
+
+                // Check if the mouse is over the drop zone
+                if (
+                    mouseX >= dropZoneRect.left &&
+                    mouseX <= dropZoneRect.right &&
+                    mouseY >= dropZoneRect.top &&
+                    mouseY <= dropZoneRect.bottom
+                ) {
+                    if (this.selectedCube?.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
+                        const texture = this.selectedCube.material.map;
+                    
+                        this.getPredominantColor(texture, (color) => {
+                            console.log('Predominant Color:', color);
+                    
+                            // Apply the color to the drop zone
+                            this.dropZone.style.boxShadow = `${color} 0px 0px 15px`;
+                        });
+                    }
+
+                    this.dropZone.classList.add('hover');
+                    // Update the drop zone content
+                    this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
+                    this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
+                    this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
+                }
+                else {
+                    this.dropZone.style.boxShadow = 'none'; // Reset the box shadow
+                    this.dropZone.classList.remove('hover');
+                    // Reset the drop zone content if not hovering
+                    this.dropZone.querySelector('#drop-zone-link').textContent = 'Solte aqui!';
+                    this.dropZone.querySelector('#drop-zone-link').href = '';
+                    this.dropZone.querySelector('#drop-zone-icon').src = 'img/external-link.png';
+                }
+            }
         }
     }
     
     onMouseUp(event) {
         if (this.selectedCube) {
+            // Re-enable OrbitControls
+            this.controls.enabled = true;
+            
             // Check if the object is dropped inside the drop zone
             const dropZoneRect = this.dropZone.getBoundingClientRect();
             // Calculate mouse position in normalized device coordinates
@@ -634,7 +721,7 @@ class MainScene extends ThreejsScene {
     
             // Hide the drop zone
             this.dropZone.style.opacity = '0';
-            this.dropZone.style.pointerEvents = 'none'; // Disable pointer events for the drop zone
+            // this.dropZone.style.pointerEvents = 'none'; // Disable pointer events for the drop zone
     
             // Re-enable physics for the selected cube
             const index = this.geometries.indexOf(this.selectedCube);
@@ -648,29 +735,42 @@ class MainScene extends ThreejsScene {
     }
 
     onTouchStart(event) {
-        // Check if the touch is on the Three.js canvas
-        if (event.target !== this.renderer.domElement) return;
-    
         // Extract touch position
         const touch = event.touches[0];
         const simulatedMouseEvent = {
             clientX: touch.clientX,
             clientY: touch.clientY,
+            preventDefault: () => {}, // Prevent default behavior
+            stopPropagation: () => {}, // Prevent event propagation            
         };
     
+        // Calculate mouse position in normalized device coordinates
+        this.mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+    
+        // Use raycaster to find intersected objects
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.geometries);
+    
+        if (intersects.length > 0) {
+            // Prevent default only when touching an object
+            event.preventDefault();
+            // Disable OrbitControls when dragging objects
+            this.controls.enabled = false;
+        }
+        
         // Reuse the onMouseDown logic
         this.onMouseDown(simulatedMouseEvent);
     }
     
     onTouchMove(event) {
-        // Check if the touch is on the Three.js canvas
-        if (event.target !== this.renderer.domElement) return;
-    
         // Extract touch position
         const touch = event.touches[0];
         const simulatedMouseEvent = {
             clientX: touch.clientX,
             clientY: touch.clientY,
+            preventDefault: () => {}, // Prevent default behavior
+            stopPropagation: () => {}, // Prevent event propagation            
         };
     
         // Reuse the onMouseMove logic
@@ -679,11 +779,16 @@ class MainScene extends ThreejsScene {
     
     onTouchEnd(event) {
         if (event.changedTouches.length > 0) {
+            // Re-enable OrbitControls
+            this.controls.enabled = true;
+            
             // Extract touch position from changedTouches
             const touch = event.changedTouches[0];
             const simulatedMouseEvent = {
                 clientX: touch.clientX,
                 clientY: touch.clientY,
+                preventDefault: () => {}, // Prevent default behavior
+                stopPropagation: () => {}, // Prevent event propagation
             };
     
             // Reuse the onMouseUp logic
@@ -694,6 +799,7 @@ class MainScene extends ThreejsScene {
     addNewCube(texturePath, cubeUrl, cubeName, cubeSize, cubePosition) {
         const textureLoader = new THREE.TextureLoader();
         const texture = textureLoader.load(texturePath);
+        // texture.colorSpace = THREE.SRGBColorSpace
         texture.magFilter = THREE.NearestFilter; // Pixelated look for the cube
     
         // Preprocess the texture to replace transparent areas with white
@@ -729,11 +835,13 @@ class MainScene extends ThreejsScene {
             const processedTexture = new THREE.CanvasTexture(canvas);
     
             // Create a new cube with the processed texture
-            const cubeGeometry = new RoundedBoxGeometry(cubeSize, cubeSize, cubeSize); // Width, Height, Depth, Segments, Radius
+            const cubeGeometry = new RoundedBoxGeometry(cubeSize, cubeSize, cubeSize, 16, 0.5); // Width, Height, Depth, Segments, Radius
 
             const cubeMaterial = new THREE.MeshStandardMaterial({
                 map: processedTexture,
-                color: new THREE.Color('#828282'),
+                color: new THREE.Color('#ffffff'), // Changed to white for better lighting
+                roughness: 0.5,
+                metalness: 0.5
             });
 
             const newCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
@@ -790,11 +898,11 @@ class MainScene extends ThreejsScene {
         const gui = this.debugGui.gui;
     
         // Lights folder
-        const lightsFolder = gui.addFolder('Lights');
-        lightsFolder.add(this.scene.children[0].position, 'x', -100, 100).name('Light X');
-        lightsFolder.add(this.scene.children[0].position, 'y', -100, 100).name('Light Y');
-        lightsFolder.add(this.scene.children[0].position, 'z', -100, 100).name('Light Z');
-        lightsFolder.add(this.scene.children[0], 'intensity', 0, 10).name('Light Intensity');
+        // const lightsFolder = gui.addFolder('Lights');
+        // lightsFolder.add(this.scene.children[0].position, 'x', -100, 100).name('Light X');
+        // lightsFolder.add(this.scene.children[0].position, 'y', -100, 100).name('Light Y');
+        // lightsFolder.add(this.scene.children[0].position, 'z', -100, 100).name('Light Z');
+        // lightsFolder.add(this.scene.children[0], 'intensity', 0, 10).name('Light Intensity');
     
         // Models folder
         const modelsFolder = gui.addFolder('Models');
@@ -881,7 +989,7 @@ class MainScene extends ThreejsScene {
             // this.scene.add(helper);
 
             // Create Cannon.js box shape (half extents)
-            const boxShape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
+            const boxShape = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0, size.z / 2));
             const boxBody = new CANNON.Body({
                 mass: 1,
                 position: new CANNON.Vec3(model.position.x, model.position.y, model.position.z),
@@ -912,7 +1020,8 @@ class MainScene extends ThreejsScene {
             const textObj = new TextGeometry(text, {
                 font: font,
                 size: size,
-                height: height,
+                // height: height,
+                depth: .9, // Depth for 3D effect
                 curveSegments: 12,
                 bevelEnabled: false,
             });
@@ -955,15 +1064,18 @@ class MainScene extends ThreejsScene {
             const boxSize = new THREE.Vector3();
             boundingBox.getSize(boxSize);
     
+            //  + ((boxSize.y / 2) - 0.35)
             // Add physics body for the text
-            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, ((boxSize.y / 2) - 0.35), boxSize.z / 2));
+            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, (boxSize.y / 2)-1.2, boxSize.z / 2));
             const textBody = new CANNON.Body({
                 mass: 1, // Dynamic body
-                position: new CANNON.Vec3(position[0], position[1] + ((boxSize.y / 2) - 0.35), position[2]), // Adjust position to match the bounding box
+                position: new CANNON.Vec3(position[0], position[1], position[2]), // Adjust position to match the bounding box
                 shape: textShape,
             });
     
+
             // Apply rotation to the physics body
+            textBody.position.set(position[0], position[1], position[2]);
             textBody.quaternion.setFromEuler(rotation[0], rotation[1], rotation[2]);
     
             // Add bouncing effect by setting restitution
@@ -988,48 +1100,77 @@ class MainScene extends ThreejsScene {
     }
 
     createLights() {
-        const light = new THREE.DirectionalLight( new THREE.Color( 'white' ), 0.2 );
-        light.position.set( 1, 500, 1 );
-    
-        light.castShadow = true;
-    
-        light.shadow.mapSize.width = 512;
-        light.shadow.mapSize.height = 512;
-        light.shadow.camera.near = 0.5;
-        light.shadow.camera.far = 50;
-    
-        this.scene.add(light);
+        // const ambientLight = new THREE.AmbientLight('#86cdff', 0.275)
+        // this.scene.add(ambientLight)
 
-        // Street lamp light setup
-        const bulbGeometry = new THREE.SphereGeometry( 0.002, 0.002, 0.002 );
-        const bulbLight = new THREE.PointLight( new THREE.Color( 'white' ), 1, 100, 2 );
-
-        const bulbMat = new THREE.MeshStandardMaterial( {
-            emissive: new THREE.Color( 'white' ),
-            emissiveIntensity: 150,
-            color: new THREE.Color( 'white' )
-        } );
-        bulbLight.add( new THREE.Mesh( bulbGeometry, bulbMat ) );
-        // set bulbLight position to the street_lamp position
-        bulbLight.position.set( 3, 5, 45 );
-        bulbLight.intensity = 0.35;
-        bulbLight.distance = 500;
-        bulbLight.castShadow = true;
-        bulbLight.shadowMapVisible = true;
-        bulbLight.shadow.mapSize.width = 260;
-        bulbLight.shadow.mapSize.height = 260;
-        bulbLight.shadow.camera.far = 5;
-        this.scene.add(bulbLight);
+        const directionalLight = new THREE.DirectionalLight('#ffffff', 5.5)
+        directionalLight.position.set(10, 35, 10); // Better position for shadows
+        directionalLight.castShadow = true; // Enable shadow casting
+        
+        // Configure shadow camera
+        directionalLight.shadow.mapSize.width = 2048; // Higher resolution for shadows
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.near = 0.1;
+        directionalLight.shadow.camera.far = 400;
+        directionalLight.shadow.camera.left = -200;
+        directionalLight.shadow.camera.right = 200;
+        directionalLight.shadow.camera.top = 200;
+        directionalLight.shadow.camera.bottom = -200;
+        directionalLight.shadow.bias = -0.0001;
+        this.scene.add(directionalLight)
     }
 
     createGround() {
-        const groundGeometry = new THREE.CircleGeometry(2000, 2000);
-        const groundMaterial = new THREE.MeshPhongMaterial({ color: new THREE.Color('gray'), side: THREE.DoubleSide });
+        const textureLoader = new THREE.TextureLoader()
+
+        // Floor
+        const floorAlphaTexture = textureLoader.load('./textures/main/alpha.webp')
+        const floorColorTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_diff_1k.webp')
+        const floorARMTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_arm_1k.webp')
+        const floorNormalTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_nor_gl_1k.webp')
+        const floorDisplacementTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_disp_1k.webp')
+
+        floorColorTexture.colorSpace = THREE.SRGBColorSpace
+
+        floorColorTexture.repeat.set(4, 4)
+        floorARMTexture.repeat.set(4, 4)
+        floorNormalTexture.repeat.set(4, 4)
+        floorDisplacementTexture.repeat.set(4, 4)
+
+        floorColorTexture.wrapS = THREE.RepeatWrapping
+        floorARMTexture.wrapS = THREE.RepeatWrapping
+        floorNormalTexture.wrapS = THREE.RepeatWrapping
+        floorDisplacementTexture.wrapS = THREE.RepeatWrapping
+
+        floorColorTexture.wrapT = THREE.RepeatWrapping
+        floorARMTexture.wrapT = THREE.RepeatWrapping
+        floorNormalTexture.wrapT = THREE.RepeatWrapping
+        floorDisplacementTexture.wrapT = THREE.RepeatWrapping
+
+        const groundGeometry = new THREE.CircleGeometry(60, 60);
+        const groundMaterial = new THREE.MeshStandardMaterial({
+            alphaMap: floorAlphaTexture,
+            transparent: true,
+            map: floorColorTexture,
+            aoMap: floorARMTexture,
+            roughnessMap: floorARMTexture,
+            metalnessMap: floorARMTexture,
+            normalMap: floorNormalTexture,
+            displacementMap: floorDisplacementTexture,
+            displacementScale: 0.5,
+            displacementBias: -0.2,
+            side: THREE.DoubleSide,
+            // Ensure proper lighting
+            roughness: 1,
+            metalness: 0
+        });
+
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.receiveShadow = true;
         this.scene.add(ground);
         ground.position.set(0, 0, 0);
         ground.rotation.set(-Math.PI / 2, 0, 0);
-        ground.receiveShadow = true;
+        
     
         // Add physics body for the ground
         const groundShape = new CANNON.Plane();
@@ -1037,6 +1178,7 @@ class MainScene extends ThreejsScene {
             mass: 0, // Static body
             shape: groundShape,
         });
+        groundBody.position.set(0, 0, 0);
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Match the rotation of the Three.js ground
     
         // Add a physics material for the ground
@@ -1051,6 +1193,11 @@ class MainScene extends ThreejsScene {
 
     customAnimate() {
         const elapsedTime = this.clock.getElapsedTime();
+
+        // Update controls
+        if (this.controls) {
+            this.controls.update();
+        }
 
         // Step the physics world
         const timeStep = 1 / 60; // 60 FPS
@@ -1072,7 +1219,7 @@ class MainScene extends ThreejsScene {
         });
 
         // Render the CSS3D scene
-        this.cssRenderer.render(this.cssScene, this.camera);        
+        // this.cssRenderer.render(this.cssScene, this.camera);        
     }
 }
 
