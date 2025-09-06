@@ -10,6 +10,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 class MainScene extends ThreejsScene {
     constructor(debugGui=null) {
@@ -27,7 +30,7 @@ class MainScene extends ThreejsScene {
     
         // Initialize Cannon.js physics world
         this.physicsWorld = new CANNON.World();
-        this.physicsWorld.gravity.set(0, -20, 0); // Increase gravity intensity
+        this.physicsWorld.gravity.set(0, -50, 0); // Increase gravity intensity
         this.physicsBodies = []; // Store physics bodies for cubes
 
         // Raycaster and interaction properties
@@ -45,33 +48,80 @@ class MainScene extends ThreejsScene {
             minZ: -20,
             maxZ: 200,
         };
+
+        this.pixelControls = null;
+        this.pixelSizeController = null;
+        
+        // Audio setup
+        this.seabreezeAudio = null;
+        this.audioLoaded = false;
+        this.loadAudio();
+    }
+
+    loadAudio() {
+        this.seabreezeAudio = new Audio('sounds/background/seabreeze.wav');
+        this.seabreezeAudio.loop = true;
+        this.seabreezeAudio.volume = 0.3; // Set volume to 30%
+        
+        this.seabreezeAudio.addEventListener('canplaythrough', () => {
+            this.audioLoaded = true;
+            console.log('Seabreeze audio loaded and ready to play');
+        });
+        
+        this.seabreezeAudio.addEventListener('error', (e) => {
+            console.error('Error loading seabreeze audio:', e);
+        });
+        
+        // Preload the audio
+        this.seabreezeAudio.load();
+    }
+
+    playSeabreezeAudio() {
+        if (this.seabreezeAudio && this.audioLoaded) {
+            // Handle user interaction requirement for audio
+            this.seabreezeAudio.play().then(() => {
+                console.log('Seabreeze audio started playing');
+            }).catch((error) => {
+                console.log('Audio play failed (likely needs user interaction):', error);
+                // Add a one-time click listener to start audio
+                document.addEventListener('click', () => {
+                    this.seabreezeAudio.play().then(() => {
+                        console.log('Seabreeze audio started playing after user interaction');
+                    }).catch((e) => {
+                        console.error('Audio play failed even after user interaction:', e);
+                    });
+                }, { once: true });
+            });
+        } else {
+            console.log('Audio not loaded yet, will try again in 1 second');
+            setTimeout(() => this.playSeabreezeAudio(), 1000);
+        }
     }
 
     populateScene() {
         // Scene setup
         const pmremGenerator = new THREE.PMREMGenerator( this.renderer );
-        // this.scene.background = new THREE.Color('#172836');
         this.scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.07 ).texture;
 
-        let sky = new Sky();
-        sky.scale.setScalar( 450000 );
-        this.scene.add( sky );
+        this.scene.background = new THREE.Color('#57a2df');
+
+        // let sky = new Sky();
+        // sky.scale.setScalar( 450000 );
+        // this.scene.add( sky );
 
         // Create a realistic day sky
-        sky.material.uniforms['turbidity'].value = 5; // Lower turbidity for clearer sky
-        sky.material.uniforms['rayleigh'].value = 1.5; // Reduced for less blue scattering
-        sky.material.uniforms['mieCoefficient'].value = 0.15; // Lower for less haze
-        sky.material.uniforms['mieDirectionalG'].value = 0.7; // Directional scattering
-        sky.material.uniforms['sunPosition'].value.set(0.3, -0.4, -0.2); // Higher sun position for daylight
+        // sky.material.uniforms['turbidity'].value = 5; // Lower turbidity for clearer sky
+        // sky.material.uniforms['rayleigh'].value = 1.5; // Reduced for less blue scattering
+        // sky.material.uniforms['mieCoefficient'].value = 0.15; // Lower for less haze
+        // sky.material.uniforms['mieDirectionalG'].value = 0.7; // Directional scattering
+        // sky.material.uniforms['sunPosition'].value.set(0.3, -0.4, -0.2); // Higher sun position for daylight
 
         // Add exponential fog
-        // this.scene.fog = new THREE.FogExp2('#172836', 0.0042);
+        this.scene.fog = new THREE.FogExp2('#57a2df', 0.00045);
 
         // Add camera
-        this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2000 );
-        this.camera.position.set( 0, 55, 10 );
-        this.camera.lookAt( 0, -5, 0 );
-
+        this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2500 );
+        
         // Add OrbitControls
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
@@ -80,9 +130,18 @@ class MainScene extends ThreejsScene {
         this.controls.enableZoom = true; // Enable zooming
         this.controls.enablePan = true; // Enable panning
         this.controls.maxPolarAngle = Math.PI / 2.5; // i need it just a bit above the ground level
-        this.controls.minPolarAngle = Math.PI / 2.5; // i need it a little above ground level
-        this.controls.minDistance = 30; // Minimum zoom distance
-        this.controls.maxDistance = 80; // Maximum zoom distance
+        this.controls.minPolarAngle = Math.PI / 2.5;
+        // this.controls.minPolarAngle = Math.PI / 3.5;
+        this.controls.minDistance = 700; // Minimum zoom distance
+        this.controls.maxDistance = 1500; // Maximum zoom distance
+        
+        // Set camera to start at maximum distance
+        const maxDistance = 1500;
+        const targetPosition = new THREE.Vector3(0, -5, 0);
+        const cameraDirection = new THREE.Vector3(0, 55, 10).normalize(); // Use your original direction
+        this.camera.position.copy(targetPosition).add(cameraDirection.multiplyScalar(maxDistance));
+        this.camera.lookAt(targetPosition);
+        
         this.controls.update();
 
         this.calculateViewportBoundaries();
@@ -93,79 +152,51 @@ class MainScene extends ThreejsScene {
         // Add ground
         this.createGround();
 
-        // document.getElementById('loading-screen').style.display = '';
-        // // Loading manager
-        // const loadingManager = new THREE.LoadingManager(
-        //     () => {
-        //         // On load complete
-        //         setTimeout(() => {
-        //             document.getElementById('loading-screen').style.display = 'none';
-        //             document.getElementById('progress-bar').style.width = '0%';
-        //         }, 500);
-        //     },
-        //     (itemUrl, itemsLoaded, itemsTotal) => {
-        //         // On progress
-        //         const progress = (itemsLoaded / itemsTotal) * 100;
-        //         document.getElementById('progress-bar').style.width = `${progress}%`;
-        //     },
-        //     (url) => {
-        //         // On load start
-        //         document.getElementById('loading-screen').style.display = '';
-        //     }
-        // );
+        this.createOcean();
 
-        // //Setup model loader
-        // const dracoLoader = new DRACOLoader();
-        // dracoLoader.setDecoderPath( 'jsm/' );
-        // const loader = new GLTFLoader(loadingManager);
-        // loader.setDRACOLoader( dracoLoader );
-
-        // //Load the laptop model
-        // this.loadModel(loader, 'models/jacaranda_tree_1k.gltf', [0, 20, 20], [1, 1, 1], [0, -Math.PI/2, 0], true);
-        
-        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.0115 : 0.0035)); // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.035 : 0.03)); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 
             'https://www.linkedin.com/in/leonardo-gutierrez-sato/',
             'LinkedIn',
             cubeSize, 
-            new THREE.Vector3(-10.1, 47.5, -10.1)
+            new THREE.Vector3(-30.1, 70, -30.1)
         );
         this.addNewCube(
             'textures/main/github.png', 
             'https://github.com/satoLG', 
             'GitHub',
             cubeSize, 
-            new THREE.Vector3(0.1, 47.5, -10.1)
+            new THREE.Vector3(30.1, 70, 30.1)
         );
         this.addNewCube(
             'textures/main/codepen.png', 
             'https://codepen.io/satoLG', 
             'CodePen',
             cubeSize, 
-            new THREE.Vector3(10.1, 47.5, -10.1)
+            new THREE.Vector3(45.1, 70, -45.1)
         );
         this.addNewCube(
             'textures/main/instagram.jpg', 
             'https://www.instagram.com/sato_leo_kun/',
             'Instagram',
             cubeSize, 
-            new THREE.Vector3(10, 32.5, -8)
+            new THREE.Vector3(35, 70, -18)
         );
         this.addNewCube(
             'textures/main/whatsapp.jpeg', 
             'https://wa.me/11952354083', 
             'WhatsApp',
             cubeSize, 
-            new THREE.Vector3(0, 32.5, -8)
+            new THREE.Vector3(15, 70, -38)
         );
         this.addNewCube(
             'textures/main/gmail.png', 
             'mailto:leonardogsato@gmail.com', 
             'leonardogsato@gmail.com',
             cubeSize, 
-            new THREE.Vector3(-10, 32.5, -8)
+            new THREE.Vector3(-20, 70, 38)
         );
 
         // Add text
@@ -175,32 +206,21 @@ class MainScene extends ThreejsScene {
             gentilis: 'https://threejs.org/examples/fonts/gentilis_regular.typeface.json',
         };        
         
-        this.addText(
-            `leo`, 
-            fontPaths.helvetiker, [0, 1, 25], 2.8, [0, Math.PI/.5, 0], .27, '#184b1a'
-        );
-        this.addText(
-            `sato`, 
-            fontPaths.helvetiker, [-3, 1, 35], 2.8, [0, Math.PI/.5, 0], .27, '#8b4513'
-        );        
+        // this.addText(
+        //     `leo`, 
+        //     fontPaths.helvetiker, [0, 350, 25], 20, [0, Math.PI/.5, 0], .27, 'brown'
+        // );
+        // this.addText(
+        //     `sato`, 
+        //     fontPaths.helvetiker, [-3, 350, 35], 20, [0, Math.PI/.5, 0], .27, 'brown'
+        // );        
 
         // Add debug GUI features
-        // if (this.debugGui) {
-        //     setTimeout(() => {
-        //         this.addDebugGui();                
-        //     }, 2000);
-        // }
-
-        // Add CSS3DRenderer for iframe rendering
-        // this.cssRenderer = new CSS3DRenderer();
-        // this.cssRenderer.setSize(window.innerWidth, window.innerHeight);
-        // this.cssRenderer.domElement.style.position = 'absolute';
-        // this.cssRenderer.domElement.style.top = '0';
-
-        // const containerCss = document.getElementById( 'css' );
-        // containerCss.appendChild(this.cssRenderer.domElement);
-       
-        // this.createIframe(``)
+        if (this.debugGui) {
+            setTimeout(() => {
+                this.addDebugGui();
+            }, 2000);
+        }
 
         this.dropZone = document.querySelector('#drop-zone');
         this.dropZone.addEventListener('mouseover', () => {
@@ -327,160 +347,55 @@ class MainScene extends ThreejsScene {
 
         // Update boundaries on window resize
         window.addEventListener('resize', this.onWindowResize.bind(this));
-    }
 
-    createIframe(html) {
-        // Create container
-        const container = document.createElement('div');
-        container.style.width = this.iframeSizes.width + 'px';
-        container.style.height = this.iframeSizes.height + 'px';
-        container.style.opacity = '1';
-        container.style.background = '#1d2e2f';
-    
-        // Create iframe
-        const iframe = document.createElement('iframe');
-    
-        // Bubble mouse move events to the main application, so we can affect the window.camera
-        iframe.onload = () => {
-            if (iframe.contentWindow) {
-                window.addEventListener('message', (event) => {
-                    var evt = new CustomEvent(event.data.type, {
-                        bubbles: true,
-                        cancelable: false,
-                    });
-    
-                    // @ts-ignore
-                    evt.inComputer = true;
-                    if (event.data.type === 'mousemove') {
-                        console.log('iframe event', event.data.clientX, event.data.clientY);
-                        var clRect = iframe.getBoundingClientRect();
-                        const { top, left, width, height } = clRect;
-                        // const widthRatio = width / IFRAME_SIZE.w;
-                        // const heightRatio = height / IFRAME_SIZE.h;
-    
-                        // @ts-ignore
-                        evt.clientX = Math.round(
-                            event.data.clientX * widthRatio + left
-                        );
-                        //@ts-ignore
-                        evt.clientY = Math.round(
-                            event.data.clientY * heightRatio + top
-                        );
-                    } else if (event.data.type === 'keydown') {
-                        console.log('iframe event', event.data.clientX, event.data.clientY);
-                        // @ts-ignore
-                        evt.key = event.data.key;
-                    } else if (event.data.type === 'keyup') {
-                        console.log('iframe event', event.data.clientX, event.data.clientY);
-                        // @ts-ignore
-                        evt.key = event.data.key;
-                    }
-    
-                    iframe.dispatchEvent(evt);
-                });
-            }
-        };
-    
-        // Set iframe attributes
-        // iframe.src = 'data:text/html;charset=utf-8,' + encodeURI(html);
-        // iframe.src = 'https://bruno-simon.com/'; // Replace with your desired URL
-        iframe.src = 'https://satolg.github.io/projects_hub/'; // Replace with your desired URL
-        // iframe.src = 'https://satolg.github.io/walking_pkmn_trainer/'; // Replace with your desired URL
-
-        // Increase internal resolution by 4x
-        const resolutionMultiplier = 6; // Change this to 3, 5, etc., for higher resolution
-        iframe.style.width = `${this.iframeSizes.width * resolutionMultiplier}px`; // Quadruple the internal resolution
-        iframe.style.height = `${this.iframeSizes.height * resolutionMultiplier}px`; // Quadruple the internal resolution
-        iframe.style.transform = `scale(${1 / resolutionMultiplier})`; // Scale down to fit the container
-        iframe.style.transformOrigin = 'top left'; // Ensure scaling starts from the top-left corner
-        iframe.style.padding = '5px';
-        iframe.style.boxSizing = 'border-box';
-        iframe.style.opacity = '1';
-        iframe.className = 'jitter';
-        iframe.id = 'computer-screen';
-        iframe.frameBorder = '0';
-        iframe.title = 'satoSystems';
-    
-        // Add iframe to container
-        container.appendChild(iframe);
-    
-        // Add a load event listener
-        iframe.onload = () => {
-            console.log('Iframe content loaded successfully.');
-
-            // Intercept link clicks inside the iframe
-            try {
-                const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
-
-                // Add a click event listener to the iframe's document
-                iframeDocument.addEventListener('click', (event) => {
-                    const target = event.target;
-
-                    event.preventDefault(); // Prevent the default behavior of opening the link
-                    const href = target.getAttribute('href');
-
-                    if (target.getAttribute('href')) {
-                        // Update the iframe's src to the clicked link
-                        iframe.src = href;
-                        console.log(`Navigating iframe to: ${href}`);
-                    }
-                });
-            } catch (error) {
-                console.error('Error accessing iframe content:', error);
-            }
+        // Current pixel size state
+        this.pixelControls = {
+            pixelSize: 100,
+            isHighPixel: false, // false = low pixel (100), true = high pixel (10)
+            isAnimating: false // Flag to prevent multiple animations
         };
 
-        // Add a timeout fallback
-        setTimeout(() => {
-            if (!iframe.contentWindow || !iframe.contentDocument) {
-                console.warn('Iframe content did not load within the expected time.');
-                // Perform fallback actions, such as reloading the iframe or showing an error message
-                iframe.src = iframe.src; // Reload the iframe
-            }
-        }, 100); // 5-second timeout
+        const currentPixelSize = 100;
 
-        // Create CSS plane
-        this.createCssPlane(container);
-    }
-    
-    createCssPlane(element) {
-        // Create CSS3D object
-        const object = new CSS3DObject(element);
-        object.position.set(0, 30, -90);
-        // Rotate object slightly to the right
-        // object.rotation.set(0, Math.PI, 0);
-    
-        // copy monitor position and rotation
-        // object.position.copy(window.laptop.position);
-        // object.rotation.copy(window.laptop.rotation);
-    
-        // Add to CSS scene
-        this.cssScene.add(object);
-    
-        // Create GL plane
-        const material = new THREE.MeshLambertMaterial();
-        material.side = THREE.DoubleSide;
-        material.opacity = 0;
-        material.transparent = true;
-        // NoBlending allows the GL plane to occlude the CSS plane
-        material.blending = THREE.NoBlending;
-    
-        // Create plane geometry
-        const geometry = new THREE.PlaneGeometry(
-            this.iframeSizes.width,
-            this.iframeSizes.height
+        this.composer = new EffectComposer( this.renderer );
+        this.renderPixelatedPass = new RenderPixelatedPass( currentPixelSize, this.scene, this.camera );
+        this.renderPixelatedPass.normalEdgeStrength = 0;
+        this.composer.addPass( this.renderPixelatedPass );
+
+        this.outputPass = new OutputPass();
+        this.composer.addPass( this.outputPass );
+
+        // document.getElementById('loading-screen').style.display = '';
+        // Loading manager
+        const loadingManager = new THREE.LoadingManager(
+            () => {
+                this.startIntroAnimation();
+                // On load complete
+                // setTimeout(() => {
+                //     document.getElementById('loading-screen').style.display = 'none';
+                //     document.getElementById('progress-bar').style.width = '0%';
+                // }, 500);
+            },
+            (itemUrl, itemsLoaded, itemsTotal) => {
+                // On progress
+                // const progress = (itemsLoaded / itemsTotal) * 100;
+                // document.getElementById('progress-bar').style.width = `${progress}%`;
+            },
+            (url) => {
+                // On load start
+                // document.getElementById('loading-screen').style.display = '';
+            }
         );
-    
-        // Create the GL plane mesh
-        const mesh = new THREE.Mesh(geometry, material);
-    
-        // Copy the position, rotation and scale of the CSS plane to the GL plane
-        mesh.position.copy(object.position);
-        mesh.rotation.copy(object.rotation);
-        mesh.scale.copy(object.scale);
-    
-        // Add to gl scene
-        this.scene.add(mesh);
+
+        //Setup model loader
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath( 'jsm/' );
+        const loader = new GLTFLoader(loadingManager);
+        loader.setDRACOLoader( dracoLoader );
+
+        //Load the laptop model
+        this.loadModel(loader, 'models/palmtree.glb', [0, 20, 0], [80, 80, 80], [0, 0, 0], true);
+
     }
 
     isMobile() {
@@ -836,7 +751,6 @@ class MainScene extends ThreejsScene {
     
             // Create a new cube with the processed texture
             const cubeGeometry = new RoundedBoxGeometry(cubeSize, cubeSize, cubeSize, 16, 0.5); // Width, Height, Depth, Segments, Radius
-
             const cubeMaterial = new THREE.MeshStandardMaterial({
                 map: processedTexture,
                 color: new THREE.Color('#ffffff'), // Changed to white for better lighting
@@ -878,8 +792,8 @@ class MainScene extends ThreejsScene {
             // Create a contact material for bouncing
             const groundMaterial = this.groundBody.material; // Assuming the ground has a material
             const contactMaterial = new CANNON.ContactMaterial(cubePhysicsMaterial, groundMaterial, {
-                restitution: 0.1, // Bounciness (higher values = more bounce)
-                friction: 0.6, // Friction
+                restitution: 0.05, // Bounciness (higher values = more bounce)
+                friction: 0.8, // Friction
             });
             this.physicsWorld.addContactMaterial(contactMaterial);
 
@@ -896,7 +810,34 @@ class MainScene extends ThreejsScene {
 
     addDebugGui() {
         const gui = this.debugGui.gui;
-    
+
+        // Pixelated render controls
+        if (this.renderPixelatedPass) {
+            const renderFolder = gui.addFolder('Render Effects');
+            
+            this.pixelSizeController = renderFolder.add(this.pixelControls, 'pixelSize', 1, 100)
+                .name('Pixel Size')
+                .step(1)
+                .onChange((value) => {
+                    // Update the pixelated pass pixel size
+                    this.renderPixelatedPass.setPixelSize(value);
+                    console.log('Pixel size changed to:', value);
+                });
+
+            // Toggle button for quick switching between 100 and 10
+            renderFolder.add(this.pixelControls, 'isHighPixel')
+                .name('Toggle Quality')
+                .onChange((value) => {
+                    const currentPixelSize = this.pixelControls.pixelSize;
+                    const targetPixelSize = value ? 10 : 100;
+                    
+                    console.log('Starting pixel size transition from', currentPixelSize, 'to', targetPixelSize);
+                    
+                    // Animate from current value to target value
+                    this.animatePixelSize(currentPixelSize, targetPixelSize);
+                });
+        }
+
         // Lights folder
         // const lightsFolder = gui.addFolder('Lights');
         // lightsFolder.add(this.scene.children[0].position, 'x', -100, 100).name('Light X');
@@ -939,6 +880,103 @@ class MainScene extends ThreejsScene {
                     });
             });
         }
+    }
+
+    animatePixelSize(startValue, endValue, duration = 1000) {
+        if (!this.pixelControls) return; // Prevent multiple animations
+
+        this.pixelControls.isAnimating = true;
+        const startTime = performance.now();
+        
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function for smooth animation (ease-in-out)
+            const easeInOut = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            const currentValue = startValue + (endValue - startValue) * easeInOut;
+            
+            // Update the pixel size
+            this.pixelControls.pixelSize = Math.round(currentValue);
+            this.renderPixelatedPass.setPixelSize(this.pixelControls.pixelSize);
+
+            // Update the GUI display
+            // this.pixelSizeController.updateDisplay();
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                this.pixelControls.isAnimating = false;
+                console.log('Pixel size animation completed at:', endValue);
+                if (this.animationsCompleted) {
+                    this.animationsCompleted.pixel = true;
+                    this.checkAnimationsComplete();
+                }
+            }
+        };
+        
+        requestAnimationFrame(animate);
+    }
+
+    startIntroAnimation() {
+        // Track completion of both animations
+        this.animationsCompleted = {
+            camera: false,
+            pixel: false
+        };
+        
+        // Start both animations simultaneously
+        this.animateCameraZoom();
+        this.animatePixelSize(100, 10, 3000); // 3 second transition to high quality
+    }
+
+    checkAnimationsComplete() {
+        if (this.animationsCompleted.camera && this.animationsCompleted.pixel) {
+            console.log('All intro animations completed, starting seabreeze audio');
+            this.playSeabreezeAudio();
+        }
+    }
+
+    animateCameraZoom(duration = 3000) {
+        if (!this.controls) return;
+
+        const startDistance = this.controls.maxDistance; // Should be 1500
+        const endDistance = this.controls.minDistance;   // Should be 500
+        const startTime = performance.now();
+        
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function for smooth animation (ease-in-out)
+            const easeInOut = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            const currentDistance = startDistance + (endDistance - startDistance) * easeInOut;
+            
+            // Update camera position maintaining the same direction
+            const targetPosition = new THREE.Vector3(0, -5, 0);
+            const cameraDirection = new THREE.Vector3(0, 55, 10).normalize();
+            this.camera.position.copy(targetPosition).add(cameraDirection.multiplyScalar(currentDistance));
+            this.camera.lookAt(targetPosition);
+            
+            // Update controls
+            this.controls.update();
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                console.log('Camera zoom animation completed');
+                this.animationsCompleted.camera = true;
+                this.checkAnimationsComplete();
+            }
+        };
+        
+        requestAnimationFrame(animate);
     }
 
     loadModel(loader, path, position, scale, rotation = [0, 0, 0], allowShadow = false) {
@@ -998,9 +1036,9 @@ class MainScene extends ThreejsScene {
 
             boxBody.quaternion.setFromEuler(rotation[0], rotation[1], rotation[2]);
 
-            this.physicsWorld.addBody(boxBody);
+            // this.physicsWorld.addBody(boxBody);
             this.geometries.push(model);
-            this.physicsBodies.push(boxBody);
+            // this.physicsBodies.push(boxBody);
 
             if (gltf.animations.length > 0) {
                 const mixer = new THREE.AnimationMixer(model);
@@ -1021,7 +1059,7 @@ class MainScene extends ThreejsScene {
                 font: font,
                 size: size,
                 // height: height,
-                depth: .9, // Depth for 3D effect
+                depth: 8, // Depth for 3D effect
                 curveSegments: 12,
                 bevelEnabled: false,
             });
@@ -1066,7 +1104,7 @@ class MainScene extends ThreejsScene {
     
             //  + ((boxSize.y / 2) - 0.35)
             // Add physics body for the text
-            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, (boxSize.y / 2)-1.2, boxSize.z / 2));
+            const textShape = new CANNON.Box(new CANNON.Vec3(boxSize.x / 2, (boxSize.y / 6), boxSize.z / 2));
             const textBody = new CANNON.Body({
                 mass: 1, // Dynamic body
                 position: new CANNON.Vec3(position[0], position[1], position[2]), // Adjust position to match the bounding box
@@ -1103,7 +1141,7 @@ class MainScene extends ThreejsScene {
         // const ambientLight = new THREE.AmbientLight('#86cdff', 0.275)
         // this.scene.add(ambientLight)
 
-        const directionalLight = new THREE.DirectionalLight('#ffffff', 5.5)
+        const directionalLight = new THREE.DirectionalLight('#ffffff', 0.7)
         directionalLight.position.set(10, 35, 10); // Better position for shadows
         directionalLight.castShadow = true; // Enable shadow casting
         
@@ -1125,17 +1163,17 @@ class MainScene extends ThreejsScene {
 
         // Floor
         const floorAlphaTexture = textureLoader.load('./textures/main/alpha.webp')
-        const floorColorTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_diff_1k.webp')
-        const floorARMTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_arm_1k.webp')
-        const floorNormalTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_nor_gl_1k.webp')
-        const floorDisplacementTexture = textureLoader.load('./textures/main/forest_leaves_02_1k/forest_leaves_02_disp_1k.webp')
+        const floorColorTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_color_1k.png')
+        const floorARMTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_ambient_occlusion_1k.png')
+        const floorNormalTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_normal_gl_1k.png')
+        const floorDisplacementTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_height_1k.png')
 
         floorColorTexture.colorSpace = THREE.SRGBColorSpace
 
-        floorColorTexture.repeat.set(4, 4)
-        floorARMTexture.repeat.set(4, 4)
-        floorNormalTexture.repeat.set(4, 4)
-        floorDisplacementTexture.repeat.set(4, 4)
+        floorColorTexture.repeat.set(12, 12)
+        floorARMTexture.repeat.set(12, 12)
+        floorNormalTexture.repeat.set(12, 12)
+        floorDisplacementTexture.repeat.set(12, 12)
 
         floorColorTexture.wrapS = THREE.RepeatWrapping
         floorARMTexture.wrapS = THREE.RepeatWrapping
@@ -1147,9 +1185,18 @@ class MainScene extends ThreejsScene {
         floorNormalTexture.wrapT = THREE.RepeatWrapping
         floorDisplacementTexture.wrapT = THREE.RepeatWrapping
 
-        const groundGeometry = new THREE.CircleGeometry(60, 60);
+        const groundGeometry = new THREE.SphereGeometry( 
+            800, 
+            600, 
+            600, 
+            0, 
+            Math.PI * 2, 
+            0, 
+            Math.PI // Ground half-sphere
+        ); 
+        //const groundGeometry = new THREE.PlaneGeometry(520, 520, 256, 256);
         const groundMaterial = new THREE.MeshStandardMaterial({
-            alphaMap: floorAlphaTexture,
+            // alphaMap: floorAlphaTexture,
             transparent: true,
             map: floorColorTexture,
             aoMap: floorARMTexture,
@@ -1157,7 +1204,7 @@ class MainScene extends ThreejsScene {
             metalnessMap: floorARMTexture,
             normalMap: floorNormalTexture,
             displacementMap: floorDisplacementTexture,
-            displacementScale: 0.5,
+            displacementScale: 25,
             displacementBias: -0.2,
             side: THREE.DoubleSide,
             // Ensure proper lighting
@@ -1168,27 +1215,173 @@ class MainScene extends ThreejsScene {
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.receiveShadow = true;
         this.scene.add(ground);
-        ground.position.set(0, 0, 0);
+        ground.position.set(0, -760, 0);
         ground.rotation.set(-Math.PI / 2, 0, 0);
         
     
         // Add physics body for the ground
-        const groundShape = new CANNON.Plane();
+        const radius = 800; // Match your THREE.SphereGeometry radius
+        const groundShape = new CANNON.Sphere(radius);
         const groundBody = new CANNON.Body({
             mass: 0, // Static body
             shape: groundShape,
+            material: new CANNON.Material()
         });
-        groundBody.position.set(0, 0, 0);
+        groundBody.position.set(0, -radius+50, 0); // Position to match your visual hemisphere
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Match the rotation of the Three.js ground
     
         // Add a physics material for the ground
-        const groundPhysicsMaterial = new CANNON.Material();
+        const groundPhysicsMaterial = new CANNON.Material({
+            friction: 0.8,
+            restitution: 0.05
+        });
         groundBody.material = groundPhysicsMaterial;
     
         this.physicsWorld.addBody(groundBody);
     
         // Store the ground body for contact materials
         this.groundBody = groundBody;
+    }
+
+    createOcean() {
+        this.oceanGeometry = new THREE.PlaneGeometry(5500, 5500, 128, 128);
+        this.oceanGeometry.rotateX(-Math.PI * 0.5);
+
+        // Create vertex data array with initial height, phase, and amplitude
+        this.vertData = [];
+        for (let i = 0; i < this.oceanGeometry.attributes.position.count; i++) {
+            const position = new THREE.Vector3();
+            position.fromBufferAttribute(this.oceanGeometry.attributes.position, i);
+            this.vertData.push({
+                initH: position.y,
+                amplitude: THREE.MathUtils.randFloatSpread(2),
+                phase: THREE.MathUtils.randFloat(0, Math.PI * 2)
+            });
+        }
+
+        // Create a gradient texture that spreads across the plane surface
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext('2d');
+
+        // Create radial gradient from center to edges
+        const gradient = context.createRadialGradient(
+            256, 256, 0,      // Inner circle (center)
+            256, 256, 256     // Outer circle (edges)
+        );
+        
+        gradient.addColorStop(0, '#2aabbc');   // Light aquamarine in center
+        gradient.addColorStop(.45, '#0a2d4d');   // Darker ocean blue at edges
+
+        // Fill canvas with gradient
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, 512, 512);
+
+        // Create texture from canvas
+        const gradientTexture = new THREE.CanvasTexture(canvas);
+
+        // Create noise texture for refraction/distortion
+        const noiseCanvas = document.createElement('canvas');
+        noiseCanvas.width = 256;
+        noiseCanvas.height = 256;
+        const noiseContext = noiseCanvas.getContext('2d');
+        
+        // Generate noise pattern
+        const imageData = noiseContext.createImageData(256, 256);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            const noise = Math.random() * 255;
+            imageData.data[i] = noise;     // R
+            imageData.data[i + 1] = noise; // G
+            imageData.data[i + 2] = noise; // B
+            imageData.data[i + 3] = 255;   // A
+        }
+        noiseContext.putImageData(imageData, 0, 0);
+        
+        const noiseTexture = new THREE.CanvasTexture(noiseCanvas);
+        noiseTexture.wrapS = noiseTexture.wrapT = THREE.RepeatWrapping;
+
+        // Create ocean material with frosted glass effect
+        const oceanMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                map: { value: gradientTexture },
+                noiseTexture: { value: noiseTexture },
+                distortionStrength: { value: 0.03 },
+                opacity: { value: 0.96 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                varying vec3 vWorldPosition;
+                varying vec4 vScreenPosition;
+                
+                uniform float time;
+                
+                void main() {
+                    vUv = uv;
+                    
+                    // Create wave animation
+                    vec3 pos = position;
+                    float wave1 = sin(pos.x * 0.02 + time * 0.5) * 0.8;
+                    float wave2 = sin(pos.z * 0.015 + time * 0.3) * 0.6;
+                    float wave3 = sin((pos.x + pos.z) * 0.01 + time * 0.8) * 0.4;
+                    
+                    float totalWave = wave1 + wave2 + wave3;
+                    pos.y += totalWave;
+                    
+                    vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+                    vWorldPosition = worldPos.xyz;
+                    vScreenPosition = projectionMatrix * viewMatrix * worldPos;
+                    
+                    gl_Position = vScreenPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                uniform sampler2D map;
+                uniform sampler2D noiseTexture;
+                uniform float distortionStrength;
+                uniform float opacity;
+                
+                varying vec2 vUv;
+                varying vec3 vWorldPosition;
+                varying vec4 vScreenPosition;
+                
+                void main() {
+                    // Sample the gradient texture
+                    vec4 gradientColor = texture2D(map, vUv);
+                    
+                    // Add animated distortion using noise
+                    vec2 noiseUV = vUv * 10.0 + time * 0.1;
+                    vec4 noise = texture2D(noiseTexture, noiseUV);
+                    
+                    // Create distortion effect
+                    vec2 distortion = (noise.rg - 0.5) * distortionStrength;
+                    vec4 distortedColor = texture2D(map, vUv + distortion);
+                    
+                    // Mix colors for frosted effect
+                    vec3 finalColor = mix(gradientColor.rgb, distortedColor.rgb, 0.5);
+                    
+                    gl_FragColor = vec4(finalColor, opacity);
+                }
+            `,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+
+        this.oceanMesh = new THREE.Mesh(this.oceanGeometry, oceanMaterial);
+        this.oceanMesh.position.y = -1;
+        this.scene.add(this.oceanMesh);
+
+        // Store material reference for updates
+        this.oceanMaterial = oceanMaterial;
+    }
+
+    animate() {
+        this.customAnimate();
+
+        this.composer.render();
+        window.requestAnimationFrame( this.animate.bind(this) );
     }
 
     customAnimate() {
@@ -1206,20 +1399,22 @@ class MainScene extends ThreejsScene {
         // Synchronize Three.js cubes with Cannon.js bodies
         this.geometries.forEach((cube, index) => {
             const body = this.physicsBodies[index];
-
-            // Clamp the physics body's position within the boundaries
-            const { minX, maxX, minY, maxY, minZ, maxZ } = this.boundaries;
-            body.position.x = THREE.MathUtils.clamp(body.position.x, minX, maxX);
-            body.position.y = THREE.MathUtils.clamp(body.position.y, minY, maxY);
-            body.position.z = THREE.MathUtils.clamp(body.position.z, minZ, maxZ);
-
-            // Synchronize the Three.js cube with the clamped physics body
+            if (!body) return;
+            // Synchronize the Three.js cube with the physics body
             cube.position.copy(body.position);
             cube.quaternion.copy(body.quaternion);
         });
 
-        // Render the CSS3D scene
-        // this.cssRenderer.render(this.cssScene, this.camera);        
+        // Update ocean waves
+        if (this.vertData) {
+            this.vertData.forEach((vd, idx) => {
+                const y = vd.initH + Math.sin((elapsedTime) + vd.phase) * vd.amplitude * 8;
+                this.oceanGeometry.attributes.position.setY(idx, y);
+            });
+            
+            this.oceanGeometry.attributes.position.needsUpdate = true;
+            this.oceanGeometry.computeVertexNormals();
+        }      
     }
 }
 
