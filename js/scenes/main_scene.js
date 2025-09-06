@@ -154,7 +154,7 @@ class MainScene extends ThreejsScene {
 
         this.createOcean();
 
-        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.035 : 0.03)); // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.035 : 0.02)); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 
