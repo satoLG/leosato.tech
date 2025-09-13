@@ -54,26 +54,86 @@ class MainScene extends ThreejsScene {
         
         // Audio setup
         this.seabreezeAudio = null;
+        this.seagullAudio = null;
+        this.flyawayAudio = null;
         this.audioLoaded = false;
         this.loadAudio();
+
+        // Seagull animation properties
+        this.seagulls = [];
+        this.seagullMixers = [];
+        this.seagullConfig = {
+            introFlightDuration: 4000, // Duration for initial flight to center
+            circularFlightRadius: 150, // Radius for circular flight around center
+            circularFlightSpeed: 0.5, // Speed of circular movement
+            circularFlightHeight: 220, // Height above ground for circular flight (increased from 60)
+            spawnDistance: 800, // Distance from center where seagulls spawn
+            spawnHeight: 80, // Initial spawn height
+            musicDelay: 3000, // Delay before background music starts
+            musicFadeInDuration: 2000, // Duration for music volume fade-in
+            maxMusicVolume: 0.3 // Maximum volume for background music
+        };
+
+        // Camera animation properties
+        this.cameraConfig = {
+            initialAngleUp: 0, // Initial upward angle in DEGREES - MORE EXTREME for testing
+            finalAngleUp: 0, // Final angle in DEGREES (looking at center)
+            introStarted: false,
+            modelsLoaded: false,
+            angleAnimationStarted: false,
+            angleAnimationCompleted: false,
+            currentTargetDistance: null
+        };
+
+        // Start button and loading state
+        this.startButton = null;
+        this.allModelsLoaded = false;
     }
 
     loadAudio() {
+        // Seabreeze ambient audio
         this.seabreezeAudio = new Audio('sounds/background/seabreeze.wav');
         this.seabreezeAudio.loop = true;
-        this.seabreezeAudio.volume = 0.3; // Set volume to 30%
+        this.seabreezeAudio.volume = 0.8;
         
-        this.seabreezeAudio.addEventListener('canplaythrough', () => {
-            this.audioLoaded = true;
-            console.log('Seabreeze audio loaded and ready to play');
-        });
+        // Seagull sound effect
+        this.seagullAudio = new Audio('sounds/background/seagulls.wav');
+        this.seagullAudio.volume = 0.3;
+        
+        // Background music
+        this.flyawayAudio = new Audio('sounds/music/flyaway.mp3');
+        this.flyawayAudio.loop = true;
+        this.flyawayAudio.volume = 0.2;
+        
+        let audioLoadedCount = 0;
+        const totalAudioFiles = 3;
+        
+        const checkAllAudioLoaded = () => {
+            audioLoadedCount++;
+            if (audioLoadedCount === totalAudioFiles) {
+                this.audioLoaded = true;
+                console.log('All audio files loaded and ready to play');
+            }
+        };
+        
+        this.seabreezeAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
+        this.seagullAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
+        this.flyawayAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
         
         this.seabreezeAudio.addEventListener('error', (e) => {
             console.error('Error loading seabreeze audio:', e);
         });
+        this.seagullAudio.addEventListener('error', (e) => {
+            console.error('Error loading seagull audio:', e);
+        });
+        this.flyawayAudio.addEventListener('error', (e) => {
+            console.error('Error loading flyaway audio:', e);
+        });
         
-        // Preload the audio
+        // Preload all audio
         this.seabreezeAudio.load();
+        this.seagullAudio.load();
+        this.flyawayAudio.load();
     }
 
     playSeabreezeAudio() {
@@ -126,21 +186,38 @@ class MainScene extends ThreejsScene {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.target.set(0, -5, 0);
+        this.controls.target.set(0, 1200, 0); // Start target high in the sky
         this.controls.enableZoom = true; // Enable zooming
         this.controls.enablePan = true; // Enable panning
-        this.controls.maxPolarAngle = Math.PI / 2.5; // i need it just a bit above the ground level
-        this.controls.minPolarAngle = Math.PI / 2.5;
-        // this.controls.minPolarAngle = Math.PI / 3.5;
+        this.controls.maxPolarAngle = Math.PI / 2.2; // Allow camera to look down to ground level
+        this.controls.minPolarAngle = Math.PI / 6; // Allow camera to look up (30 degrees from vertical)
         this.controls.minDistance = 700; // Minimum zoom distance
         this.controls.maxDistance = 1500; // Maximum zoom distance
         
-        // Set camera to start at maximum distance
+        // DISABLE OrbitControls initially - will be enabled after intro animation
+        this.controls.enabled = false;
+        
+        // Set camera to start HIGH UP in the sky looking down at nothing but sky
         const maxDistance = 1500;
         const targetPosition = new THREE.Vector3(0, -5, 0);
-        const cameraDirection = new THREE.Vector3(0, 55, 10).normalize(); // Use your original direction
-        this.camera.position.copy(targetPosition).add(cameraDirection.multiplyScalar(maxDistance));
-        this.camera.lookAt(targetPosition);
+        
+        // Position camera HIGH UP in the sky - much higher than the scene
+        const x = 0;
+        const y = 1200; // WAY HIGH UP - above everything
+        const z = targetPosition.z + maxDistance;
+        
+        this.camera.position.set(x, y, z);
+        
+        // Look straight up at the sky (so user sees nothing but sky initially)
+        const skyPoint = new THREE.Vector3(0, y + 500, 0); // Point even higher in the sky
+        this.camera.lookAt(skyPoint);
+        
+        console.log('Initial camera setup:', {
+            position: this.camera.position,
+            skyPoint: skyPoint,
+            cameraY: y,
+            lookingUp: true
+        });
         
         this.controls.update();
 
@@ -350,15 +427,13 @@ class MainScene extends ThreejsScene {
 
         // Current pixel size state
         this.pixelControls = {
-            pixelSize: 100,
+            pixelSize: 50,
             isHighPixel: false, // false = low pixel (100), true = high pixel (10)
             isAnimating: false // Flag to prevent multiple animations
         };
 
-        const currentPixelSize = 100;
-
         this.composer = new EffectComposer( this.renderer );
-        this.renderPixelatedPass = new RenderPixelatedPass( currentPixelSize, this.scene, this.camera );
+        this.renderPixelatedPass = new RenderPixelatedPass( this.pixelControls.pixelSize, this.scene, this.camera );
         this.renderPixelatedPass.normalEdgeStrength = 0;
         this.composer.addPass( this.renderPixelatedPass );
 
@@ -369,21 +444,28 @@ class MainScene extends ThreejsScene {
         // Loading manager
         const loadingManager = new THREE.LoadingManager(
             () => {
-                this.startIntroAnimation();
-                // On load complete
-                // setTimeout(() => {
-                //     document.getElementById('loading-screen').style.display = 'none';
-                //     document.getElementById('progress-bar').style.width = '0%';
-                // }, 500);
+                // All models loaded
+                this.allModelsLoaded = true;
+                console.log('All models loaded, ready for intro animation');
+                
+                // Setup start button after a short delay
+                setTimeout(() => {
+                    this.setupStartButton();
+                    // Show start button by removing any initial hide styles
+                    const startButtonContainer = document.getElementById('start-button');
+                    if (startButtonContainer) {
+                        startButtonContainer.style.display = 'flex';
+                        startButtonContainer.style.opacity = '1';
+                    }
+                }, 1000);
             },
             (itemUrl, itemsLoaded, itemsTotal) => {
                 // On progress
-                // const progress = (itemsLoaded / itemsTotal) * 100;
-                // document.getElementById('progress-bar').style.width = `${progress}%`;
+                console.log(`Loading progress: ${itemsLoaded}/${itemsTotal} - ${itemUrl}`);
             },
             (url) => {
                 // On load start
-                // document.getElementById('loading-screen').style.display = '';
+                console.log('Started loading:', url);
             }
         );
 
@@ -395,6 +477,9 @@ class MainScene extends ThreejsScene {
 
         //Load the laptop model
         this.loadModel(loader, 'models/palmtree.glb', [0, 20, 0], [80, 80, 80], [0, 0, 0], true);
+
+        // Load seagull models for intro animation
+        this.loadSeagullModels(loader);
 
     }
 
@@ -880,6 +965,84 @@ class MainScene extends ThreejsScene {
                     });
             });
         }
+
+        // Seagull Animation Controls
+        const seagullFolder = gui.addFolder('Seagull Animation');
+        
+        seagullFolder.add(this.seagullConfig, 'introFlightDuration', 1000, 10000)
+            .name('Intro Flight Duration (ms)')
+            .step(100);
+            
+        seagullFolder.add(this.seagullConfig, 'circularFlightRadius', 50, 500)
+            .name('Circular Flight Radius')
+            .step(10);
+            
+        seagullFolder.add(this.seagullConfig, 'circularFlightSpeed', 0.1, 2)
+            .name('Circular Flight Speed')
+            .step(0.1);
+            
+        seagullFolder.add(this.seagullConfig, 'circularFlightHeight', 20, 200)
+            .name('Circular Flight Height')
+            .step(5);
+            
+        seagullFolder.add(this.seagullConfig, 'spawnDistance', 500, 1500)
+            .name('Spawn Distance')
+            .step(50);
+            
+        seagullFolder.add(this.seagullConfig, 'spawnHeight', 20, 200)
+            .name('Spawn Height')
+            .step(5);
+
+        // Audio Controls
+        const audioFolder = gui.addFolder('Audio Controls');
+        
+        audioFolder.add(this.seagullConfig, 'musicDelay', 0, 10000)
+            .name('Music Delay (ms)')
+            .step(100);
+            
+        audioFolder.add(this.seagullConfig, 'musicFadeInDuration', 500, 5000)
+            .name('Music Fade Duration (ms)')
+            .step(100);
+            
+        audioFolder.add(this.seagullConfig, 'maxMusicVolume', 0, 1)
+            .name('Max Music Volume')
+            .step(0.05)
+            .onChange((value) => {
+                if (this.flyawayAudio) {
+                    this.flyawayAudio.volume = Math.min(value, this.flyawayAudio.volume);
+                }
+            });
+
+        // Manual audio controls
+        const audioActions = {
+            playSeagullSound: () => this.playSeagullSound(),
+            playBackgroundMusic: () => this.playBackgroundMusic(),
+            stopBackgroundMusic: () => {
+                if (this.flyawayAudio) {
+                    this.flyawayAudio.pause();
+                    this.flyawayAudio.currentTime = 0;
+                }
+            },
+            restartIntro: () => this.startIntroAnimation(),
+            checkSeagulls: () => {
+                console.log('Seagulls loaded:', this.seagulls.length);
+                console.log('Seagull positions:', this.seagulls.map(s => s.position));
+                console.log('Seagull visibility:', this.seagulls.map(s => s.visible));
+            },
+            showSeagulls: () => {
+                this.seagulls.forEach((seagull, index) => {
+                    seagull.visible = true;
+                    console.log(`Seagull ${index + 1} made visible`);
+                });
+            }
+        };
+        
+        audioFolder.add(audioActions, 'playSeagullSound').name('Play Seagull Sound');
+        audioFolder.add(audioActions, 'playBackgroundMusic').name('Play Background Music');
+        audioFolder.add(audioActions, 'stopBackgroundMusic').name('Stop Background Music');
+        audioFolder.add(audioActions, 'restartIntro').name('Restart Intro Animation');
+        audioFolder.add(audioActions, 'checkSeagulls').name('Check Seagulls Status');
+        audioFolder.add(audioActions, 'showSeagulls').name('Show Seagulls Manually');
     }
 
     animatePixelSize(startValue, endValue, duration = 1000) {
@@ -922,15 +1085,66 @@ class MainScene extends ThreejsScene {
     }
 
     startIntroAnimation() {
+        // Don't start if models aren't loaded or intro already started
+        if (!this.allModelsLoaded || this.cameraConfig.introStarted) {
+            console.log('Cannot start intro - models loaded:', this.allModelsLoaded, 'intro started:', this.cameraConfig.introStarted);
+            return;
+        }
+        
+        this.cameraConfig.introStarted = true;
+        console.log('Starting intro animation...');
+        
         // Track completion of both animations
         this.animationsCompleted = {
             camera: false,
             pixel: false
         };
         
-        // Start both animations simultaneously
-        this.animateCameraZoom();
-        this.animatePixelSize(100, 10, 3000); // 3 second transition to high quality
+        let animationDuration = 3000; // 3 seconds
+
+        // Start combined camera animation (zoom + angle together)
+        this.animateCameraComplete(animationDuration);
+        this.animatePixelSize(this.pixelControls.pixelSize, 5, animationDuration); // 3 second transition to high quality
+        this.startSeagullIntroFlight(); // Start seagull animation
+    }
+
+    setupStartButton() {
+        this.startButton = document.getElementById('start-intro-btn');
+        if (this.startButton) {
+            this.startButton.addEventListener('click', () => {
+                this.hideStartButton();
+                
+                // Wait a moment then start intro (or immediately if models are loaded)
+                if (this.allModelsLoaded) {
+                    setTimeout(() => {
+                        this.startIntroAnimation();
+                    }, 500); // Small delay for button animation
+                } else {
+                    // Models not loaded yet, wait for them
+                    console.log('Start button clicked, waiting for models to load...');
+                    const checkModels = setInterval(() => {
+                        if (this.allModelsLoaded) {
+                            clearInterval(checkModels);
+                            this.startIntroAnimation();
+                        }
+                    }, 100);
+                }
+            });
+        }
+    }
+
+    hideStartButton() {
+        if (this.startButton) {
+            const startButtonContainer = document.getElementById('start-button');
+            if (startButtonContainer) {
+                startButtonContainer.classList.add('fade-out');
+                
+                // Remove from DOM after animation
+                setTimeout(() => {
+                    startButtonContainer.style.display = 'none';
+                }, 800);
+            }
+        }
     }
 
     checkAnimationsComplete() {
@@ -940,11 +1154,185 @@ class MainScene extends ThreejsScene {
         }
     }
 
+    animateCameraComplete(duration = 3000) {
+        if (!this.controls) return;
+
+        console.log('🎬 Starting combined camera animation (zoom + angle)...');
+        
+        // Enable OrbitControls for the animation (they were disabled initially)
+        this.controls.enabled = true;
+        
+        // Animation parameters
+        const startTime = performance.now();
+        const startDistance = 1500; // Start from max distance
+        const endDistance = 700;    // End at min distance
+        
+        // Angle parameters
+        const startAngleDegrees = this.cameraConfig.initialAngleUp; // 45°
+        const endAngleDegrees = this.cameraConfig.finalAngleUp;     // 0°
+        const angleChange = endAngleDegrees - startAngleDegrees;    // -45°
+        
+        const targetPosition = new THREE.Vector3(0, -5, 0);
+        
+        console.log(`   Distance: ${startDistance} → ${endDistance}`);
+        console.log(`   Angle: ${startAngleDegrees}° → ${endAngleDegrees}° (change: ${angleChange}°)`);
+        console.log(`   OrbitControls ENABLED for target animation`);
+        
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function for smooth animation (ease-in-out)
+            const easeInOut = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            // Calculate current distance (zoom)
+            const currentDistance = startDistance + (endDistance - startDistance) * easeInOut;
+
+            // Position camera - move from HIGH UP (1200) down to normal level (195)
+            const startY = 1200; // High up in the sky
+            const endY = 195;   // Normal scene level
+            const currentY = startY + (endY - startY) * easeInOut;
+            
+            const x = 0;
+            const z = targetPosition.z + currentDistance;
+            
+            this.camera.position.set(x, currentY, z);
+            
+            // Animate OrbitControls target from sky down to scene center
+            const skyTargetY = currentY + 500; // Target high in the sky
+            const sceneTargetY = targetPosition.y; // Target at scene center
+            const currentTargetY = skyTargetY + (sceneTargetY - skyTargetY) * easeInOut;
+            
+            // Update OrbitControls target instead of using camera.lookAt()
+            this.controls.target.set(targetPosition.x, currentTargetY, targetPosition.z);
+            this.controls.update(); // Update controls to apply the new target
+            
+            // Log every 20% progress
+            if (Math.floor(progress * 5) !== Math.floor((progress - 0.2) * 5)) {
+                console.log(`📐 Animation Progress: ${Math.floor(progress * 100)}%`);
+                console.log(`   Distance: ${currentDistance.toFixed(1)} | Camera Y: ${currentY.toFixed(1)} | Target Y: ${currentTargetY.toFixed(1)}`);
+                console.log(`   Camera: (${x.toFixed(1)}, ${currentY.toFixed(1)}, ${z.toFixed(1)})`);
+                console.log(`   OrbitControls Target: (${this.controls.target.x.toFixed(1)}, ${this.controls.target.y.toFixed(1)}, ${this.controls.target.z.toFixed(1)})`);
+            }
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                // Animation completed - OrbitControls stay enabled
+                console.log('🏁 Combined camera animation completed');
+                console.log(`   Final Position: ${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)}`);
+                console.log(`   Final Target: ${this.controls.target.x.toFixed(1)}, ${this.controls.target.y.toFixed(1)}, ${this.controls.target.z.toFixed(1)}`);
+                console.log(`   OrbitControls remain ENABLED`);
+                
+                // Mark completion
+                this.cameraConfig.angleAnimationCompleted = true;
+                this.animationsCompleted.camera = true;
+                this.checkAnimationsComplete();
+            }
+        };
+        
+        requestAnimationFrame(animate);
+    }
+
+    animateCameraAngle() {
+        if (this.cameraConfig.angleAnimationStarted) return;
+        
+        this.cameraConfig.angleAnimationStarted = true;
+        
+        // Temporarily disable OrbitControls to prevent interference
+        const originalEnabled = this.controls.enabled;
+        this.controls.enabled = false;
+        
+        const startTime = Date.now();
+        const duration = 2000; // 2 second transition
+        
+        // Get angle values in degrees
+        const startAngleDegrees = this.cameraConfig.initialAngleUp;
+        const endAngleDegrees = this.cameraConfig.finalAngleUp;
+        const angleChange = endAngleDegrees - startAngleDegrees;
+        
+        console.log(`🎬 STARTING CAMERA ANGLE ANIMATION:`);
+        console.log(`   From: ${startAngleDegrees}° | To: ${endAngleDegrees}° | Change: ${angleChange}°`);
+        console.log(`   OrbitControls DISABLED during animation`);
+        
+        const targetPosition = new THREE.Vector3(0, -5, 0);
+        
+        const animateAngle = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Smooth easing function
+            const easedProgress = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            
+            // Calculate current angle in degrees, then convert to radians
+            const currentAngleDegrees = startAngleDegrees + (angleChange * easedProgress);
+            const currentAngleRadians = THREE.MathUtils.degToRad(currentAngleDegrees);
+            
+            // Use current target distance from zoom animation, or fallback to current distance
+            const distance = this.cameraConfig.currentTargetDistance || this.camera.position.distanceTo(targetPosition);
+            
+            // Store old position for comparison
+            const oldPosition = this.camera.position.clone();
+            
+            // Keep camera position relatively stable, just adjust slightly
+            const x = 0;
+            const y = targetPosition.y + 200 - (easedProgress * 205); // Gradually lower camera
+            const z = targetPosition.z + distance;
+            
+            this.camera.position.set(x, y, z);
+            
+            // Animate the look-at point from sky down to center
+            if (currentAngleDegrees > 0) {
+                // Looking up - interpolate between sky point and center
+                const skyLookAtY = targetPosition.y + Math.tan(THREE.MathUtils.degToRad(45)) * distance;
+                const centerLookAtY = targetPosition.y;
+                
+                const currentLookAtY = skyLookAtY - (easedProgress * (skyLookAtY - centerLookAtY));
+                this.camera.lookAt(targetPosition.x, currentLookAtY, targetPosition.z);
+            } else {
+                // Looking at center
+                this.camera.lookAt(targetPosition);
+            }
+            
+            // Log every 10% progress
+            if (Math.floor(progress * 10) !== Math.floor((progress - 0.1) * 10)) {
+                console.log(`📐 Angle Progress: ${Math.floor(progress * 100)}%`);
+                console.log(`   Current Angle: ${currentAngleDegrees.toFixed(1)}°`);
+                console.log(`   Camera Position: ${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)}`);
+                console.log(`   Position Changed: ${!oldPosition.equals(this.camera.position)}`);
+                console.log(`   Distance: ${distance.toFixed(1)}`);
+            }
+            
+            // DON'T call this.controls.update() during animation
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateAngle);
+            } else {
+                // Re-enable OrbitControls after animation
+                this.controls.enabled = originalEnabled;
+                this.controls.update();
+                
+                console.log('🏁 Camera angle animation completed - now looking at center');
+                console.log(`   Final Position: ${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)}`);
+                console.log(`   OrbitControls RE-ENABLED`);
+                this.cameraConfig.angleAnimationCompleted = true;
+            }
+        };
+        
+        animateAngle();
+    }
+
     animateCameraZoom(duration = 3000) {
         if (!this.controls) return;
 
-        const startDistance = this.controls.maxDistance; // Should be 1500
-        const endDistance = this.controls.minDistance;   // Should be 500
+        console.log('Starting camera zoom animation...');
+
+        const startDistance = 1500; // Start from max distance
+        const endDistance = 700;    // End at min distance
         const startTime = performance.now();
         
         const animate = (currentTime) => {
@@ -958,11 +1346,25 @@ class MainScene extends ThreejsScene {
             
             const currentDistance = startDistance + (endDistance - startDistance) * easeInOut;
             
-            // Update camera position maintaining the same direction
-            const targetPosition = new THREE.Vector3(0, -5, 0);
-            const cameraDirection = new THREE.Vector3(0, 55, 10).normalize();
-            this.camera.position.copy(targetPosition).add(cameraDirection.multiplyScalar(currentDistance));
-            this.camera.lookAt(targetPosition);
+            // Store the target distance for angle animation to use
+            this.cameraConfig.currentTargetDistance = currentDistance;
+            
+            // Only update position if angle animation hasn't started yet
+            if (!this.cameraConfig.angleAnimationStarted) {
+                const targetPosition = new THREE.Vector3(0, -5, 0);
+                
+                // Position camera normally but looking up initially
+                const x = 0;
+                const y = targetPosition.y + 200; // Slightly elevated
+                const z = targetPosition.z + currentDistance;
+                
+                this.camera.position.set(x, y, z);
+                
+                // Look up at the sky initially
+                const initialAngleRadians = THREE.MathUtils.degToRad(this.cameraConfig.initialAngleUp);
+                const lookAtY = targetPosition.y + Math.tan(initialAngleRadians) * currentDistance;
+                this.camera.lookAt(targetPosition.x, lookAtY, targetPosition.z);
+            }
             
             // Update controls
             this.controls.update();
@@ -1048,6 +1450,253 @@ class MainScene extends ThreejsScene {
                 this.animationMixers.push(mixer);
             }
         });
+    }
+
+    loadSeagullModels(loader) {
+        console.log('Starting to load seagull models...');
+        
+        // Calculate spawn positions for seagulls
+        const seagull1Angle = -0.3;
+        const seagull2Angle = 0.3;
+        
+        const seagull1X = Math.sin(seagull1Angle) * this.seagullConfig.spawnDistance;
+        const seagull1Z = Math.cos(seagull1Angle) * this.seagullConfig.spawnDistance;
+        
+        const seagull2X = Math.sin(seagull2Angle) * this.seagullConfig.spawnDistance;
+        const seagull2Z = Math.cos(seagull2Angle) * this.seagullConfig.spawnDistance;
+        
+        console.log('Seagull spawn positions:', {
+            seagull1: { x: seagull1X, y: this.seagullConfig.spawnHeight, z: seagull1Z },
+            seagull2: { x: seagull2X, y: this.seagullConfig.spawnHeight, z: seagull2Z }
+        });
+        
+        // Load first seagull using existing loadModel function
+        loader.load('models/seagull.glb', 
+            (gltf) => {
+                console.log('Seagull 1 GLTF loaded successfully:', gltf);
+                const seagull1 = gltf.scene;
+                seagull1.scale.set(15, 15, 15);
+                seagull1.position.set(seagull1X, this.seagullConfig.spawnHeight, seagull1Z);
+                seagull1.lookAt(0, this.seagullConfig.spawnHeight, 0);
+                seagull1.visible = false; // Initially hidden
+                
+                // Enable shadows
+                seagull1.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                this.scene.add(seagull1);
+                this.seagulls.push(seagull1);
+                
+                // Setup animation mixer for first seagull
+                if (gltf.animations && gltf.animations.length > 0) {
+                    console.log('Setting up animations for seagull 1, found', gltf.animations.length, 'animations');
+                    const mixer = new THREE.AnimationMixer(seagull1);
+                    this.seagullMixers.push(mixer);
+                    
+                    gltf.animations.forEach((clip) => {
+                        const action = mixer.clipAction(clip);
+                        action.play();
+                    });
+                } else {
+                    console.warn('No animations found for seagull 1');
+                }
+                
+                console.log('Seagull 1 loaded at position:', seagull1.position);
+            },
+            (progress) => {
+                console.log('Loading seagull 1:', (progress.loaded / progress.total * 100) + '%');
+            },
+            (error) => {
+                console.error('Error loading seagull 1:', error);
+            }
+        );
+        
+        // Load second seagull using existing loadModel function
+        loader.load('models/seagull.glb', 
+            (gltf) => {
+                console.log('Seagull 2 GLTF loaded successfully:', gltf);
+                const seagull2 = gltf.scene;
+                seagull2.scale.set(15, 15, 15);
+                seagull2.position.set(seagull2X, this.seagullConfig.spawnHeight, seagull2Z);
+                seagull2.lookAt(0, this.seagullConfig.spawnHeight, 0);
+                seagull2.visible = false; // Initially hidden
+                
+                // Enable shadows
+                seagull2.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                this.scene.add(seagull2);
+                this.seagulls.push(seagull2);
+                
+                // Setup animation mixer for second seagull
+                if (gltf.animations && gltf.animations.length > 0) {
+                    console.log('Setting up animations for seagull 2, found', gltf.animations.length, 'animations');
+                    const mixer = new THREE.AnimationMixer(seagull2);
+                    this.seagullMixers.push(mixer);
+                    
+                    gltf.animations.forEach((clip) => {
+                        const action = mixer.clipAction(clip);
+                        action.play();
+                    });
+                } else {
+                    console.warn('No animations found for seagull 2');
+                }
+                
+                console.log('Seagull 2 loaded at position:', seagull2.position);
+            },
+            (progress) => {
+                console.log('Loading seagull 2:', (progress.loaded / progress.total * 100) + '%');
+            },
+            (error) => {
+                console.error('Error loading seagull 2:', error);
+            }
+        );
+    }
+
+    playSeagullSound() {
+        if (this.seagullAudio && this.audioLoaded) {
+            this.seagullAudio.currentTime = 0; // Reset to beginning
+            this.seagullAudio.play().then(() => {
+                console.log('Seagull sound playing');
+            }).catch((error) => {
+                console.log('Seagull audio autoplay prevented, will try on user interaction:', error);
+            });
+        }
+    }
+
+    playBackgroundMusic() {
+        if (this.flyawayAudio && this.audioLoaded) {
+            this.flyawayAudio.currentTime = 0;
+            this.flyawayAudio.play().then(() => {
+                console.log('Background music started');
+                this.fadeInMusic();
+            }).catch((error) => {
+                console.log('Background music autoplay prevented:', error);
+            });
+        }
+    }
+
+    fadeInMusic() {
+        const startTime = performance.now();
+        const startVolume = 0;
+        const endVolume = this.seagullConfig.maxMusicVolume;
+        const duration = this.seagullConfig.musicFadeInDuration;
+        
+        const fadeIn = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            this.flyawayAudio.volume = 0.08;
+            //startVolume + (endVolume - startVolume) * progress;
+            
+            if (progress < 1) {
+                requestAnimationFrame(fadeIn);
+            }
+        };
+        
+        requestAnimationFrame(fadeIn);
+    }
+
+    startSeagullIntroFlight() {
+        console.log('Starting seagull intro flight, seagulls loaded:', this.seagulls.length);
+        
+        if (this.seagulls.length === 0) {
+            console.warn('No seagulls loaded yet, cannot start intro flight');
+            return;
+        }
+        
+        // Make seagulls visible and play sound
+        this.seagulls.forEach((seagull, index) => {
+            console.log(`Making seagull ${index + 1} visible at position:`, seagull.position);
+            seagull.visible = true;
+        });
+        
+        this.playSeagullSound();
+        
+        // Animate seagulls flying towards center
+        const startTime = performance.now();
+        const duration = this.seagullConfig.introFlightDuration;
+        
+        // Store initial positions
+        const startPositions = this.seagulls.map(seagull => seagull.position.clone());
+        
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Smooth easing function
+            const easeInOut = progress < 0.5 
+                ? 2 * progress * progress 
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+            
+            this.seagulls.forEach((seagull, index) => {
+                const startPos = startPositions[index];
+                
+                // Target position near center island
+                const targetX = (index === 0 ? -30 : 30); // Spread them apart at destination
+                const targetY = this.seagullConfig.circularFlightHeight;
+                const targetZ = 0;
+                
+                // Interpolate position
+                seagull.position.x = startPos.x + (targetX - startPos.x) * easeInOut;
+                seagull.position.y = startPos.y + (targetY - startPos.y) * easeInOut;
+                seagull.position.z = startPos.z + (targetZ - startPos.z) * easeInOut;
+                
+                // Make seagull look in flight direction
+                const direction = new THREE.Vector3(targetX - startPos.x, 0, targetZ - startPos.z).normalize();
+                seagull.lookAt(
+                    seagull.position.x + direction.x,
+                    seagull.position.y,
+                    seagull.position.z + direction.z
+                );
+            });
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                // Store final positions for smooth transition to circular flight
+                this.seagulls.forEach((seagull, index) => {
+                    seagull.userData.lastPosition = seagull.position.clone();
+                    
+                    // Calculate the angle from center for smooth circular transition
+                    const dx = seagull.position.x;
+                    const dz = seagull.position.z;
+                    const currentRadius = Math.sqrt(dx * dx + dz * dz);
+                    seagull.userData.transitionAngle = Math.atan2(dz, dx);
+                    
+                    console.log(`Seagull ${index + 1} final position:`, seagull.position, 'angle:', seagull.userData.transitionAngle);
+                });
+                
+                // Start circular flight and schedule background music
+                this.startCircularFlight();
+                setTimeout(() => {
+                    this.playBackgroundMusic();
+                }, this.seagullConfig.musicDelay);
+            }
+        };
+        
+        requestAnimationFrame(animate);
+    }
+
+    startCircularFlight() {
+        this.circularFlightStartTime = performance.now();
+        this.isCircularFlightActive = true;
+        
+        // Setup transition parameters for smooth circular flight
+        this.circularFlightTransition = {
+            duration: 2000, // 2 seconds to transition to circular flight
+            isTransitioning: true
+        };
+        
+        console.log('Starting circular flight transition');
     }
 
     addText(text, fontPath, position, size, rotation, height, color, border = undefined) {
@@ -1162,7 +1811,6 @@ class MainScene extends ThreejsScene {
         const textureLoader = new THREE.TextureLoader()
 
         // Floor
-        const floorAlphaTexture = textureLoader.load('./textures/main/alpha.webp')
         const floorColorTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_color_1k.png')
         const floorARMTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_ambient_occlusion_1k.png')
         const floorNormalTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_normal_gl_1k.png')
@@ -1244,7 +1892,7 @@ class MainScene extends ThreejsScene {
     }
 
     createOcean() {
-        this.oceanGeometry = new THREE.PlaneGeometry(5500, 5500, 128, 128);
+        this.oceanGeometry = new THREE.PlaneGeometry(10000, 10000, 128, 128);
         this.oceanGeometry.rotateX(-Math.PI * 0.5);
 
         // Create vertex data array with initial height, phase, and amplitude
@@ -1272,7 +1920,7 @@ class MainScene extends ThreejsScene {
         );
         
         gradient.addColorStop(0, '#2aabbc');   // Light aquamarine in center
-        gradient.addColorStop(.45, '#0a2d4d');   // Darker ocean blue at edges
+        gradient.addColorStop(.25, '#0a2d4d');   // Darker ocean blue at edges
 
         // Fill canvas with gradient
         context.fillStyle = gradient;
@@ -1405,6 +2053,82 @@ class MainScene extends ThreejsScene {
             cube.quaternion.copy(body.quaternion);
         });
 
+        // Update seagull animations
+        if (this.seagullMixers) {
+            this.seagullMixers.forEach(mixer => {
+                mixer.update(timeStep);
+            });
+        }
+
+        // Update circular flight for seagulls
+        if (this.isCircularFlightActive && this.seagulls.length > 0) {
+            const circularElapsed = (performance.now() - this.circularFlightStartTime) / 1000;
+            
+            this.seagulls.forEach((seagull, index) => {
+                // Check if we're still transitioning to circular flight
+                if (this.circularFlightTransition && this.circularFlightTransition.isTransitioning) {
+                    const transitionProgress = Math.min(circularElapsed / (this.circularFlightTransition.duration / 1000), 1);
+                    
+                    if (transitionProgress < 1) {
+                        // During transition: blend from current position to circular path
+                        const currentPos = seagull.position.clone();
+                        
+                        // Calculate target circular position
+                        const baseAngle = seagull.userData.transitionAngle || (index * Math.PI);
+                        const angle = baseAngle + circularElapsed * this.seagullConfig.circularFlightSpeed;
+                        const radius = this.seagullConfig.circularFlightRadius;
+                        
+                        const targetX = Math.cos(angle) * radius;
+                        const targetZ = Math.sin(angle) * radius;
+                        const targetY = this.seagullConfig.circularFlightHeight + Math.sin(circularElapsed * 2) * 8; // Slight up/down movement
+                        
+                        // Smoothly interpolate between current position and target circular position
+                        const easeInOut = transitionProgress < 0.5 
+                            ? 2 * transitionProgress * transitionProgress 
+                            : 1 - Math.pow(-2 * transitionProgress + 2, 2) / 2;
+                        
+                        seagull.position.x = currentPos.x + (targetX - currentPos.x) * easeInOut;
+                        seagull.position.y = currentPos.y + (targetY - currentPos.y) * easeInOut;
+                        seagull.position.z = currentPos.z + (targetZ - currentPos.z) * easeInOut;
+                        
+                        // Make seagull look in flight direction
+                        const lookAheadAngle = angle + 0.5;
+                        const lookX = Math.cos(lookAheadAngle) * radius;
+                        const lookZ = Math.sin(lookAheadAngle) * radius;
+                        seagull.lookAt(lookX, seagull.position.y, lookZ);
+                    } else {
+                        // Transition complete, switch to pure circular flight
+                        this.circularFlightTransition.isTransitioning = false;
+                        console.log('Transition to circular flight completed');
+                    }
+                } else {
+                    // Pure circular flight
+                    const baseAngle = seagull.userData.transitionAngle || (index * Math.PI);
+                    const angle = baseAngle + circularElapsed * this.seagullConfig.circularFlightSpeed;
+                    const radius = this.seagullConfig.circularFlightRadius;
+                    
+                    const x = Math.cos(angle) * radius;
+                    const z = Math.sin(angle) * radius;
+                    const y = this.seagullConfig.circularFlightHeight + Math.sin(circularElapsed * 2) * 8; // Slight up/down movement
+                    
+                    seagull.position.set(x, y, z);
+                    
+                    // Make seagull look in flight direction
+                    const lookAheadAngle = angle + 0.5; // Look ahead in flight direction
+                    const lookX = Math.cos(lookAheadAngle) * radius;
+                    const lookZ = Math.sin(lookAheadAngle) * radius;
+                    seagull.lookAt(lookX, y, lookZ);
+                }
+            });
+        }
+
+        // Update other animation mixers
+        if (this.animationMixers) {
+            this.animationMixers.forEach(mixer => {
+                mixer.update(timeStep);
+            });
+        }
+
         // Update ocean waves
         if (this.vertData) {
             this.vertData.forEach((vd, idx) => {
@@ -1414,7 +2138,12 @@ class MainScene extends ThreejsScene {
             
             this.oceanGeometry.attributes.position.needsUpdate = true;
             this.oceanGeometry.computeVertexNormals();
-        }      
+        }
+
+        // Update ocean material time uniform
+        // if (this.oceanMaterial) {
+        //     this.oceanMaterial.uniforms.time.value = elapsedTime;
+        // }
     }
 }
 

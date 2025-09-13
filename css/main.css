@@ -2,8 +2,53 @@ body {
     background: linear-gradient(#646464, #444343, #000000);		
     overflow: hidden;
     margin: 0;
-    font-family: courier !important;
-    font-weight: bold !important;
+    font-family: 'Press Start 2P', monospace !important;
+    font-weight: normal !important;
+    font-size: 8px; /* Base font size for pixel perfect look */
+}
+
+/* Apply the retro font to all text elements */
+* {
+    font-family: 'Press Start 2P', monospace !important;
+    /* Ensure crisp pixel rendering */
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
+    font-smooth: never;
+    text-rendering: optimizeSpeed;
+}
+
+/* Specific adjustments for better readability */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Press Start 2P', monospace !important;
+    line-height: 1.6;
+    letter-spacing: 1px;
+}
+
+p, span, div, a, button, input, textarea, select {
+    font-family: 'Press Start 2P', monospace !important;
+    letter-spacing: 0.5px;
+}
+
+/* Adjust font sizes for different elements */
+#loading-screen {
+    font-size: 1.5em;
+    letter-spacing: 2px;
+}
+
+#drop-zone {
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+
+.tab {
+    font-size: 8px;
+    line-height: 1.4;
+    letter-spacing: 0.5px;
+}
+
+.nametag {
+    font-size: 8px;
+    letter-spacing: 0.5px;
 }
 
 #container
@@ -34,8 +79,8 @@ a {
     background: #ffffffb5;
     border: 1px solid black;
     border-radius: .25em;
-    font-family: courier;
-    font-weight: bold;
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 8px;
     box-shadow: 2px 3px 5px 1px #0000006b;
 }
 
@@ -214,4 +259,51 @@ div#drop-zone.hover {
 
 a#drop-zone-link {
     color: white;
+}
+
+/* Start Button Styling */
+#start-button {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    display: none; /* Initially hidden */
+    opacity: 0;
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+#start-button.fade-out {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+    pointer-events: none;
+}
+
+#start-intro-btn {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 20px 30px;
+    background: linear-gradient(45deg, #ffffff45, #ffffff1c);
+    border: 3px solid #ffffff;
+    border-radius: 0;
+    color: #ffffff;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-weight: bold;
+    box-shadow: 0 0 6px rgb(243 255 249 / 60%), inset 0 0 20px rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    user-select: none;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
+}
+
+#start-intro-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 0 15px rgb(255 255 255 / 40%), inset 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+#start-intro-btn:hover {
+    background: linear-gradient(45deg, #57a2df, #397799);
+    transform: scale(1.05);
 }
