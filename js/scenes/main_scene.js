@@ -30,24 +30,32 @@ class MainScene extends ThreejsScene {
     
         // Initialize Cannon.js physics world
         this.physicsWorld = new CANNON.World();
-        this.physicsWorld.gravity.set(0, -50, 0); // Increase gravity intensity
+        this.physicsWorld.gravity.set(0, -400, 0); // Increase gravity intensity
+        
+        // Enable sleeping to reduce unnecessary calculations and prevent jittering
+        this.physicsWorld.allowSleep = true;
+        this.physicsWorld.sleepSpeedLimit = 0.1; // If speed is below this, body can sleep
+        this.physicsWorld.sleepTimeLimit = 1; // Body must be slow for this long to sleep
+        
         this.physicsBodies = []; // Store physics bodies for cubes
+
+        // Ocean physics configuration
+        this.oceanLevel = -1; // Y position of ocean surface (matches oceanMesh.position.y)
+        this.gravityConfig = {
+            normal: -400, // Normal gravity (above ocean)
+            underwater: 175, // Reduced upward force underwater (was 150, too strong)
+            damping: 0.88, // Very light damping (was 0.9, too aggressive)
+            hysteresis: 0 // Smaller hysteresis zone (was 1.5)
+        };
+
+        // Track underwater state for each body to prevent flickering
+        this.bodyUnderwaterStates = new Map(); // body -> {isUnderwater: boolean}
 
         // Raycaster and interaction properties
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.selectedCube = null; // The cube currently being dragged
         this.offset = new THREE.Vector3(); // Offset between the cube and the mouse
-    
-        // Define boundaries for cube movement
-        this.boundaries = {
-            minX: -20,
-            maxX: 200,
-            minY: 0, // Prevent going below the ground
-            maxY: 200,
-            minZ: -20,
-            maxZ: 200,
-        };
 
         this.pixelControls = null;
         this.pixelSizeController = null;
@@ -66,12 +74,12 @@ class MainScene extends ThreejsScene {
             introFlightDuration: 4000, // Duration for initial flight to center
             circularFlightRadius: 150, // Radius for circular flight around center
             circularFlightSpeed: 0.5, // Speed of circular movement
-            circularFlightHeight: 220, // Height above ground for circular flight (increased from 60)
+            circularFlightHeight: 320, // Height above ground for circular flight (increased for more natural look)
             spawnDistance: 800, // Distance from center where seagulls spawn
-            spawnHeight: 80, // Initial spawn height
+            spawnHeight: 120, // Initial spawn height (increased for higher flight)
             musicDelay: 3000, // Delay before background music starts
             musicFadeInDuration: 2000, // Duration for music volume fade-in
-            maxMusicVolume: 0.3 // Maximum volume for background music
+            // maxMusicVolume: 0.3 // Maximum volume for background music
         };
 
         // Camera animation properties
@@ -92,18 +100,18 @@ class MainScene extends ThreejsScene {
 
     loadAudio() {
         // Seabreeze ambient audio
-        this.seabreezeAudio = new Audio('sounds/background/seabreeze.wav');
+        this.seabreezeAudio = new Audio('sounds/background/seabreeze_high.wav');
         this.seabreezeAudio.loop = true;
-        this.seabreezeAudio.volume = 0.8;
+        // this.seabreezeAudio.volume = 0.8;
         
         // Seagull sound effect
         this.seagullAudio = new Audio('sounds/background/seagulls.wav');
-        this.seagullAudio.volume = 0.3;
+        // this.seagullAudio.volume = 0.3;
         
         // Background music
-        this.flyawayAudio = new Audio('sounds/music/flyaway.mp3');
+        this.flyawayAudio = new Audio('sounds/music/flyaway_low.wav');
         this.flyawayAudio.loop = true;
-        this.flyawayAudio.volume = 0.2;
+        // this.flyawayAudio.volume = 0.2;
         
         let audioLoadedCount = 0;
         const totalAudioFiles = 3;
@@ -165,28 +173,17 @@ class MainScene extends ThreejsScene {
 
         this.scene.background = new THREE.Color('#57a2df');
 
-        // let sky = new Sky();
-        // sky.scale.setScalar( 450000 );
-        // this.scene.add( sky );
-
-        // Create a realistic day sky
-        // sky.material.uniforms['turbidity'].value = 5; // Lower turbidity for clearer sky
-        // sky.material.uniforms['rayleigh'].value = 1.5; // Reduced for less blue scattering
-        // sky.material.uniforms['mieCoefficient'].value = 0.15; // Lower for less haze
-        // sky.material.uniforms['mieDirectionalG'].value = 0.7; // Directional scattering
-        // sky.material.uniforms['sunPosition'].value.set(0.3, -0.4, -0.2); // Higher sun position for daylight
-
         // Add exponential fog
         this.scene.fog = new THREE.FogExp2('#57a2df', 0.00045);
 
         // Add camera
-        this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 2500 );
+        this.camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 0.1, 5500 );
         
         // Add OrbitControls
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.target.set(0, 1200, 0); // Start target high in the sky
+        this.controls.target.set(0, 3200, 0); // Start target high in the sky
         this.controls.enableZoom = true; // Enable zooming
         this.controls.enablePan = true; // Enable panning
         this.controls.maxPolarAngle = Math.PI / 2.2; // Allow camera to look down to ground level
@@ -203,13 +200,13 @@ class MainScene extends ThreejsScene {
         
         // Position camera HIGH UP in the sky - much higher than the scene
         const x = 0;
-        const y = 1200; // WAY HIGH UP - above everything
+        const y = 2200; // WAY HIGH UP - above everything
         const z = targetPosition.z + maxDistance;
         
         this.camera.position.set(x, y, z);
         
         // Look straight up at the sky (so user sees nothing but sky initially)
-        const skyPoint = new THREE.Vector3(0, y + 500, 0); // Point even higher in the sky
+        const skyPoint = new THREE.Vector3(0, y + 2500, 0); // Point even higher in the sky
         this.camera.lookAt(skyPoint);
         
         console.log('Initial camera setup:', {
@@ -221,8 +218,6 @@ class MainScene extends ThreejsScene {
         
         this.controls.update();
 
-        this.calculateViewportBoundaries();
-
         // Add lights
         this.createLights();
 
@@ -231,49 +226,49 @@ class MainScene extends ThreejsScene {
 
         this.createOcean();
 
-        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.035 : 0.02)); // Size of the cubes
+        let cubeSize = Math.abs((window.innerWidth) * (this.isMobile() ? 0.085 : 0.02)); // Size of the cubes
 
         this.addNewCube(
             'textures/main/linkedin.png', 
             'https://www.linkedin.com/in/leonardo-gutierrez-sato/',
             'LinkedIn',
             cubeSize, 
-            new THREE.Vector3(-30.1, 70, -30.1)
+            new THREE.Vector3(-30.1, 150, -30.1)
         );
         this.addNewCube(
             'textures/main/github.png', 
             'https://github.com/satoLG', 
             'GitHub',
             cubeSize, 
-            new THREE.Vector3(30.1, 70, 30.1)
+            new THREE.Vector3(30.1, 150, 30.1)
         );
         this.addNewCube(
             'textures/main/codepen.png', 
             'https://codepen.io/satoLG', 
             'CodePen',
             cubeSize, 
-            new THREE.Vector3(45.1, 70, -45.1)
+            new THREE.Vector3(45.1, 150, -45.1)
         );
         this.addNewCube(
             'textures/main/instagram.jpg', 
             'https://www.instagram.com/sato_leo_kun/',
             'Instagram',
             cubeSize, 
-            new THREE.Vector3(35, 70, -18)
+            new THREE.Vector3(35, 180, -18)
         );
         this.addNewCube(
             'textures/main/whatsapp.jpeg', 
             'https://wa.me/11952354083', 
             'WhatsApp',
             cubeSize, 
-            new THREE.Vector3(15, 70, -38)
+            new THREE.Vector3(15, 180, -38)
         );
         this.addNewCube(
             'textures/main/gmail.png', 
             'mailto:leonardogsato@gmail.com', 
             'leonardogsato@gmail.com',
             cubeSize, 
-            new THREE.Vector3(-20, 70, 38)
+            new THREE.Vector3(-20, 180, 38)
         );
 
         // Add text
@@ -451,11 +446,14 @@ class MainScene extends ThreejsScene {
                 // Setup start button after a short delay
                 setTimeout(() => {
                     this.setupStartButton();
-                    // Show start button by removing any initial hide styles
+                    // Show start button with growing animation
                     const startButtonContainer = document.getElementById('start-button');
                     if (startButtonContainer) {
                         startButtonContainer.style.display = 'flex';
-                        startButtonContainer.style.opacity = '1';
+                        // Force reflow to ensure display change is applied
+                        startButtonContainer.offsetHeight;
+                        // Add show class to trigger growing animation
+                        startButtonContainer.classList.add('show');
                     }
                 }, 1000);
             },
@@ -531,29 +529,12 @@ class MainScene extends ThreejsScene {
         if (callback) callback(color);
     }
 
-    calculateViewportBoundaries() {
-        const aspect = window.innerWidth / window.innerHeight;
-        const vFOV = THREE.MathUtils.degToRad(this.camera.fov); // Vertical field of view in radians
-        const height = 2 * Math.tan(vFOV / 2) * this.camera.position.z; // Visible height
-        const width = height * aspect; // Visible width
-    
-        this.boundaries = {
-            minX: -(width / 2 - 6),
-            maxX: width / 2 - 6,
-            minY: 0, // Prevent going below the ground
-            maxY: height,
-            minZ: -40, // Keep Z boundaries fixed
-            maxZ: 80,
-        };
-    }
+
 
     onWindowResize() {
         // Update camera aspect ratio and projection matrix
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
-    
-        // Recalculate viewport boundaries
-        this.calculateViewportBoundaries();
     
         // Update renderer size
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -579,8 +560,11 @@ class MainScene extends ThreejsScene {
             // Select the first intersected object
             this.selectedCube = intersects[0].object;
 
-            // Dynamically align the intersection plane with the object's current position
-            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.selectedCube.position.z);
+            // Create a plane perpendicular to the camera's viewing direction
+            // This allows movement in 3D space relative to the camera view
+            const cameraDirection = new THREE.Vector3();
+            this.camera.getWorldDirection(cameraDirection);
+            const plane = new THREE.Plane(cameraDirection, -cameraDirection.dot(this.selectedCube.position));
     
             // Calculate the intersection point
             const intersectionPoint = new THREE.Vector3();
@@ -596,6 +580,7 @@ class MainScene extends ThreejsScene {
                 body.type = CANNON.Body.KINEMATIC; // Make the body kinematic
                 body.velocity.set(0, 0, 0); // Stop any linear motion
                 body.angularVelocity.set(0, 0, 0); // Stop any rotational motion
+                body.wakeUp(); // Ensure the body is awake during manipulation
             }
 
             console.log('Selected Cube:', this.selectedCube);
@@ -616,8 +601,11 @@ class MainScene extends ThreejsScene {
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     
-            // Dynamically align the intersection plane with the object's current position
-            const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.selectedCube.position.z);
+            // Create a plane perpendicular to the camera's viewing direction
+            // This allows movement in 3D space relative to the camera view
+            const cameraDirection = new THREE.Vector3();
+            this.camera.getWorldDirection(cameraDirection);
+            const plane = new THREE.Plane(cameraDirection, -cameraDirection.dot(this.selectedCube.position));
     
             // Use raycaster to find the intersection point in 3D space
             this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -626,12 +614,6 @@ class MainScene extends ThreejsScene {
     
             // Update the position of the selected object
             this.selectedCube.position.copy(intersectionPoint.sub(this.offset));
-    
-            // Clamp the object's position within the boundaries
-            const { minX, maxX, minY, maxY, minZ, maxZ } = this.boundaries;
-            this.selectedCube.position.x = THREE.MathUtils.clamp(this.selectedCube?.position.x, minX, maxX);
-            this.selectedCube.position.y = THREE.MathUtils.clamp(this.selectedCube?.position.y, minY, maxY);
-            this.selectedCube.position.z = THREE.MathUtils.clamp(this.selectedCube?.position.z, minZ, maxZ);
     
             // Update the physics body position
             const index = this.geometries.indexOf(this.selectedCube);
@@ -726,7 +708,9 @@ class MainScene extends ThreejsScene {
             // Re-enable physics for the selected cube
             const index = this.geometries.indexOf(this.selectedCube);
             if (index !== -1) {
-                this.physicsBodies[index].type = CANNON.Body.DYNAMIC; // Make the body dynamic again
+                const body = this.physicsBodies[index];
+                body.type = CANNON.Body.DYNAMIC; // Make the body dynamic again
+                body.wakeUp(); // Wake up the body to ensure it responds to physics
             }
     
             // Clear the selected cube
@@ -854,6 +838,7 @@ class MainScene extends ThreejsScene {
                 name: cubeName, // Name of the cube
                 url: cubeUrl, // URL to open on click
                 texturePath: texturePath, // Path to the original texture
+                originalPosition: { x: cubePosition.x, y: cubePosition.y, z: cubePosition.z } // Store original position for reset
             };
 
             // Add the cube to the scene
@@ -865,6 +850,9 @@ class MainScene extends ThreejsScene {
                 mass: 1, // Dynamic body
                 position: new CANNON.Vec3(cubePosition.x, cubePosition.y, cubePosition.z),
                 shape: cubeShape,
+                // Simple damping to prevent endless bouncing
+                linearDamping: 0.02,
+                angularDamping: 0.02
             });
 
             // Set random rotation for the physics body
@@ -874,11 +862,11 @@ class MainScene extends ThreejsScene {
             const cubePhysicsMaterial = new CANNON.Material();
             cubeBody.material = cubePhysicsMaterial;
 
-            // Create a contact material for bouncing
+            // Create a contact material for absolutely no bouncing
             const groundMaterial = this.groundBody.material; // Assuming the ground has a material
             const contactMaterial = new CANNON.ContactMaterial(cubePhysicsMaterial, groundMaterial, {
-                restitution: 0.05, // Bounciness (higher values = more bounce)
-                friction: 0.8, // Friction
+                restitution: 0, // ACTUALLY no bouncing (was 0.2)
+                friction: 0.6, // Moderate friction
             });
             this.physicsWorld.addContactMaterial(contactMaterial);
 
@@ -1009,7 +997,7 @@ class MainScene extends ThreejsScene {
             .step(0.05)
             .onChange((value) => {
                 if (this.flyawayAudio) {
-                    this.flyawayAudio.volume = Math.min(value, this.flyawayAudio.volume);
+                    // this.flyawayAudio.volume = Math.min(value, this.flyawayAudio.volume);
                 }
             });
 
@@ -1043,6 +1031,89 @@ class MainScene extends ThreejsScene {
         audioFolder.add(audioActions, 'restartIntro').name('Restart Intro Animation');
         audioFolder.add(audioActions, 'checkSeagulls').name('Check Seagulls Status');
         audioFolder.add(audioActions, 'showSeagulls').name('Show Seagulls Manually');
+
+        // Ocean Physics Controls
+        const physicsFolder = gui.addFolder('Ocean Physics');
+        
+        physicsFolder.add(this.gravityConfig, 'normal', -1000, 0)
+            .name('Normal Gravity')
+            .step(10)
+            .onChange((value) => {
+                this.physicsWorld.gravity.set(0, value, 0);
+            });
+            
+        physicsFolder.add(this.gravityConfig, 'underwater', -100, 200)
+            .name('Underwater Buoyancy')
+            .step(5);
+            
+        physicsFolder.add(this.gravityConfig, 'damping', 0.1, 1)
+            .name('Underwater Damping')
+            .step(0.05);
+            
+        physicsFolder.add(this.gravityConfig, 'hysteresis', 0.5, 10)
+            .name('Transition Hysteresis')
+            .step(0.5);
+            
+        physicsFolder.add(this, 'oceanLevel', -50, 50)
+            .name('Ocean Level (Y)')
+            .step(1);
+
+        // Physics testing actions
+        const physicsActions = {
+            throwCubeIntoOcean: () => {
+                if (this.geometries.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * this.geometries.length);
+                    const body = this.physicsBodies[randomIndex];
+                    if (body) {
+                        // Position cube above ocean and give it downward velocity
+                        body.position.set(
+                            Math.random() * 100 - 50, // Random X
+                            50, // Above ocean
+                            Math.random() * 100 - 50  // Random Z
+                        );
+                        body.velocity.set(0, -20, 0); // Downward velocity
+                        console.log('Threw cube into ocean for testing!');
+                    }
+                }
+            },
+            resetAllCubes: () => {
+                this.geometries.forEach((cube, index) => {
+                    const body = this.physicsBodies[index];
+                    if (body) {
+                        // Reset to original positions (above ground)
+                        body.position.set(
+                            cube.userData.originalPosition?.x || 0,
+                            70,
+                            cube.userData.originalPosition?.z || 0
+                        );
+                        body.velocity.set(0, 0, 0);
+                        body.angularVelocity.set(0, 0, 0);
+                        body.force.set(0, 0, 0); // Clear any accumulated forces
+                        
+                        // Reset underwater state
+                        this.bodyUnderwaterStates.delete(body);
+                    }
+                });
+                console.log('Reset all cubes to original positions');
+            },
+            clearPhysicsStates: () => {
+                // Clear all underwater states to reset physics tracking
+                this.bodyUnderwaterStates.clear();
+                
+                // Clear forces on all bodies
+                this.physicsBodies.forEach(body => {
+                    if (body) {
+                        body.force.set(0, 0, 0);
+                        body.velocity.scale(0.5, body.velocity); // Slow down all bodies
+                    }
+                });
+                console.log('Cleared all physics states and forces');
+            }
+        };
+        
+        physicsFolder.add(physicsActions, 'throwCubeIntoOcean').name('Test: Throw Cube in Ocean');
+        physicsFolder.add(physicsActions, 'resetAllCubes').name('Reset All Cubes');
+        physicsFolder.add(physicsActions, 'clearPhysicsStates').name('Clear Physics States');
     }
 
     animatePixelSize(startValue, endValue, duration = 1000) {
@@ -1100,50 +1171,87 @@ class MainScene extends ThreejsScene {
             pixel: false
         };
         
-        let animationDuration = 3000; // 3 seconds
+        let animationDuration = 5000;
 
         // Start combined camera animation (zoom + angle together)
         this.animateCameraComplete(animationDuration);
-        this.animatePixelSize(this.pixelControls.pixelSize, 5, animationDuration); // 3 second transition to high quality
+        this.animatePixelSize(this.pixelControls.pixelSize, 5, animationDuration);
         this.startSeagullIntroFlight(); // Start seagull animation
     }
 
     setupStartButton() {
-        this.startButton = document.getElementById('start-intro-btn');
-        if (this.startButton) {
-            this.startButton.addEventListener('click', () => {
-                this.hideStartButton();
-                
-                // Wait a moment then start intro (or immediately if models are loaded)
-                if (this.allModelsLoaded) {
-                    setTimeout(() => {
-                        this.startIntroAnimation();
-                    }, 500); // Small delay for button animation
-                } else {
-                    // Models not loaded yet, wait for them
-                    console.log('Start button clicked, waiting for models to load...');
-                    const checkModels = setInterval(() => {
+        // Initialize typewriter effect
+        this.initializeTypewriter();
+    }
+
+    initializeTypewriter() {
+        const typewriterElement = document.getElementById('typewriter-text');
+        
+        if (typewriterElement && typeof Typewriter !== 'undefined') {
+            // Wait for the dialog box animation to complete before starting typewriter
+            setTimeout(() => {
+                const typewriter = new Typewriter(typewriterElement, {
+                    loop: false,
+                    delay: 85,
+                    deleteSpeed: 50,
+                    cursor: '⯆', // Enable the typewriter cursor
+                });
+
+                typewriter
+                    .typeString('WHERE AM I...')
+                    .callFunction(() => {
+                        // Make the dialog box clickable after typewriter finishes
+                        typewriterElement.style.cursor = 'pointer';
+                        typewriterElement.addEventListener('click', () => {
+                            this.hideStartButton();
+                            
+                            // Wait a moment then start intro
+                            if (this.allModelsLoaded) {
+                                setTimeout(() => {
+                                    this.startIntroAnimation();
+                                }, 800); // Wait for shrinking animation
+                            } else {
+                                console.log('Dialog clicked, waiting for models to load...');
+                                const checkModels = setInterval(() => {
+                                    if (this.allModelsLoaded) {
+                                        clearInterval(checkModels);
+                                        this.startIntroAnimation();
+                                    }
+                                }, 100);
+                            }
+                        });
+                    })
+                    .start();
+            }, 900); // Wait 900ms for the bouncy animation to complete
+        } else {
+            console.error('Typewriter library not loaded or element not found');
+            // Fallback: show text immediately and make it clickable (with delay)
+            if (typewriterElement) {
+                setTimeout(() => {
+                    typewriterElement.textContent = 'WHERE AM I ?';
+                    typewriterElement.style.cursor = 'pointer';
+                    typewriterElement.addEventListener('click', () => {
+                        this.hideStartButton();
                         if (this.allModelsLoaded) {
-                            clearInterval(checkModels);
-                            this.startIntroAnimation();
+                            setTimeout(() => {
+                                this.startIntroAnimation();
+                            }, 800);
                         }
-                    }, 100);
-                }
-            });
+                    });
+                }, 900);
+            }
         }
     }
 
     hideStartButton() {
-        if (this.startButton) {
-            const startButtonContainer = document.getElementById('start-button');
-            if (startButtonContainer) {
-                startButtonContainer.classList.add('fade-out');
-                
-                // Remove from DOM after animation
-                setTimeout(() => {
-                    startButtonContainer.style.display = 'none';
-                }, 800);
-            }
+        const startButtonContainer = document.getElementById('start-button');
+        if (startButtonContainer) {
+            startButtonContainer.classList.add('fade-out');
+            
+            // Remove from DOM after animation
+            setTimeout(() => {
+                startButtonContainer.style.display = 'none';
+            }, 800);
         }
     }
 
@@ -1191,7 +1299,7 @@ class MainScene extends ThreejsScene {
             const currentDistance = startDistance + (endDistance - startDistance) * easeInOut;
 
             // Position camera - move from HIGH UP (1200) down to normal level (195)
-            const startY = 1200; // High up in the sky
+            const startY = 2200; // High up in the sky
             const endY = 195;   // Normal scene level
             const currentY = startY + (endY - startY) * easeInOut;
             
@@ -1201,7 +1309,7 @@ class MainScene extends ThreejsScene {
             this.camera.position.set(x, currentY, z);
             
             // Animate OrbitControls target from sky down to scene center
-            const skyTargetY = currentY + 500; // Target high in the sky
+            const skyTargetY = currentY + 1500; // Target high in the sky
             const sceneTargetY = targetPosition.y; // Target at scene center
             const currentTargetY = skyTargetY + (sceneTargetY - skyTargetY) * easeInOut;
             
@@ -1514,51 +1622,7 @@ class MainScene extends ThreejsScene {
                 console.error('Error loading seagull 1:', error);
             }
         );
-        
-        // Load second seagull using existing loadModel function
-        loader.load('models/seagull.glb', 
-            (gltf) => {
-                console.log('Seagull 2 GLTF loaded successfully:', gltf);
-                const seagull2 = gltf.scene;
-                seagull2.scale.set(15, 15, 15);
-                seagull2.position.set(seagull2X, this.seagullConfig.spawnHeight, seagull2Z);
-                seagull2.lookAt(0, this.seagullConfig.spawnHeight, 0);
-                seagull2.visible = false; // Initially hidden
-                
-                // Enable shadows
-                seagull2.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
-                
-                this.scene.add(seagull2);
-                this.seagulls.push(seagull2);
-                
-                // Setup animation mixer for second seagull
-                if (gltf.animations && gltf.animations.length > 0) {
-                    console.log('Setting up animations for seagull 2, found', gltf.animations.length, 'animations');
-                    const mixer = new THREE.AnimationMixer(seagull2);
-                    this.seagullMixers.push(mixer);
-                    
-                    gltf.animations.forEach((clip) => {
-                        const action = mixer.clipAction(clip);
-                        action.play();
-                    });
-                } else {
-                    console.warn('No animations found for seagull 2');
-                }
-                
-                console.log('Seagull 2 loaded at position:', seagull2.position);
-            },
-            (progress) => {
-                console.log('Loading seagull 2:', (progress.loaded / progress.total * 100) + '%');
-            },
-            (error) => {
-                console.error('Error loading seagull 2:', error);
-            }
-        );
+
     }
 
     playSeagullSound() {
@@ -1594,7 +1658,7 @@ class MainScene extends ThreejsScene {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
             
-            this.flyawayAudio.volume = 0.08;
+            // this.flyawayAudio.volume = 0.08;
             //startVolume + (endVolume - startVolume) * progress;
             
             if (progress < 1) {
@@ -1692,7 +1756,7 @@ class MainScene extends ThreejsScene {
         
         // Setup transition parameters for smooth circular flight
         this.circularFlightTransition = {
-            duration: 2000, // 2 seconds to transition to circular flight
+            duration: 4000, // 4 seconds to transition to circular flight (slower for more natural look)
             isTransitioning: true
         };
         
@@ -1772,8 +1836,8 @@ class MainScene extends ThreejsScene {
             // Create a contact material for bouncing
             const groundMaterial = this.groundBody.material; // Assuming the ground has a material
             const contactMaterial = new CANNON.ContactMaterial(textPhysicsMaterial, groundMaterial, {
-                restitution: 0.1, // Lower bounciness for stacking
-                friction: 0.6, // Friction for stability
+                restitution: 0.2, // Lower bounciness for stacking
+                friction: 0.8, // Friction for stability
             });
             this.physicsWorld.addContactMaterial(contactMaterial);
     
@@ -1834,7 +1898,7 @@ class MainScene extends ThreejsScene {
         floorDisplacementTexture.wrapT = THREE.RepeatWrapping
 
         const groundGeometry = new THREE.SphereGeometry( 
-            800, 
+            1000, 
             600, 
             600, 
             0, 
@@ -1863,25 +1927,25 @@ class MainScene extends ThreejsScene {
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.receiveShadow = true;
         this.scene.add(ground);
-        ground.position.set(0, -760, 0);
+        ground.position.set(0, -940, 0);
         ground.rotation.set(-Math.PI / 2, 0, 0);
         
     
         // Add physics body for the ground
-        const radius = 800; // Match your THREE.SphereGeometry radius
+        const radius = 1000; // Match your THREE.SphereGeometry radius
         const groundShape = new CANNON.Sphere(radius);
         const groundBody = new CANNON.Body({
             mass: 0, // Static body
             shape: groundShape,
             material: new CANNON.Material()
         });
-        groundBody.position.set(0, -radius+50, 0); // Position to match your visual hemisphere
+        groundBody.position.set(0, -radius+60, 0); // Match original positioning exactly
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Match the rotation of the Three.js ground
     
-        // Add a physics material for the ground
+        // Add a physics material for the ground - very stable, no bouncing
         const groundPhysicsMaterial = new CANNON.Material({
-            friction: 0.8,
-            restitution: 0.05
+            friction: 0.6,
+            restitution: 0 // ACTUALLY no bouncing (was 0.2)
         });
         groundBody.material = groundPhysicsMaterial;
     
@@ -1892,7 +1956,7 @@ class MainScene extends ThreejsScene {
     }
 
     createOcean() {
-        this.oceanGeometry = new THREE.PlaneGeometry(10000, 10000, 128, 128);
+        this.oceanGeometry = new THREE.PlaneGeometry(30000, 30000, 128, 128);
         this.oceanGeometry.rotateX(-Math.PI * 0.5);
 
         // Create vertex data array with initial height, phase, and amplitude
@@ -1920,7 +1984,7 @@ class MainScene extends ThreejsScene {
         );
         
         gradient.addColorStop(0, '#2aabbc');   // Light aquamarine in center
-        gradient.addColorStop(.25, '#0a2d4d');   // Darker ocean blue at edges
+        gradient.addColorStop(.1, '#0a2d4d');   // Darker ocean blue at edges
 
         // Fill canvas with gradient
         context.fillStyle = gradient;
@@ -1929,34 +1993,13 @@ class MainScene extends ThreejsScene {
         // Create texture from canvas
         const gradientTexture = new THREE.CanvasTexture(canvas);
 
-        // Create noise texture for refraction/distortion
-        const noiseCanvas = document.createElement('canvas');
-        noiseCanvas.width = 256;
-        noiseCanvas.height = 256;
-        const noiseContext = noiseCanvas.getContext('2d');
-        
-        // Generate noise pattern
-        const imageData = noiseContext.createImageData(256, 256);
-        for (let i = 0; i < imageData.data.length; i += 4) {
-            const noise = Math.random() * 255;
-            imageData.data[i] = noise;     // R
-            imageData.data[i + 1] = noise; // G
-            imageData.data[i + 2] = noise; // B
-            imageData.data[i + 3] = 255;   // A
-        }
-        noiseContext.putImageData(imageData, 0, 0);
-        
-        const noiseTexture = new THREE.CanvasTexture(noiseCanvas);
-        noiseTexture.wrapS = noiseTexture.wrapT = THREE.RepeatWrapping;
-
         // Create ocean material with frosted glass effect
         const oceanMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
                 map: { value: gradientTexture },
-                noiseTexture: { value: noiseTexture },
-                distortionStrength: { value: 0.03 },
-                opacity: { value: 0.96 }
+                distortionStrength: { value: 0.5 },
+                opacity: { value: 0.975 }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -2039,6 +2082,56 @@ class MainScene extends ThreejsScene {
         if (this.controls) {
             this.controls.update();
         }
+
+        // Apply dynamic gravity based on object position relative to ocean level
+        this.physicsBodies.forEach((body, index) => {
+            if (!body) return;
+            
+            // CRITICAL: Clear accumulated forces from previous frame
+            body.force.set(0, 0, 0);
+            
+            // Get or initialize the underwater state for this body
+            if (!this.bodyUnderwaterStates.has(body)) {
+                this.bodyUnderwaterStates.set(body, {
+                    isUnderwater: false
+                });
+            }
+            
+            const state = this.bodyUnderwaterStates.get(body);
+            const currentY = body.position.y;
+            
+            // Simple hysteresis to prevent flickering
+            const upperThreshold = this.oceanLevel + this.gravityConfig.hysteresis;
+            const lowerThreshold = this.oceanLevel - this.gravityConfig.hysteresis;
+            
+            let shouldBeUnderwater;
+            if (state.isUnderwater) {
+                // Currently underwater, switch to air only if well above ocean
+                shouldBeUnderwater = currentY < upperThreshold;
+            } else {
+                // Currently in air, switch to underwater only if well below ocean
+                shouldBeUnderwater = currentY < lowerThreshold;
+            }
+            
+            // Update state if it changed
+            if (shouldBeUnderwater !== state.isUnderwater) {
+                state.isUnderwater = shouldBeUnderwater;
+            }
+            
+            // Apply simple underwater physics ONLY when underwater
+            if (state.isUnderwater) {
+                const mass = body.mass;
+                
+                // Replace world gravity with buoyancy force
+                const netUpwardForce = (-this.gravityConfig.normal + this.gravityConfig.underwater) * mass;
+                body.force.set(0, netUpwardForce, 0);
+                
+                // Apply underwater damping ONCE per frame
+                body.velocity.scale(this.gravityConfig.damping, body.velocity);
+                body.angularVelocity.scale(this.gravityConfig.damping, body.angularVelocity);
+            }
+            // When above water, let normal world gravity apply (no custom forces needed)
+        });
 
         // Step the physics world
         const timeStep = 1 / 60; // 60 FPS
@@ -2132,7 +2225,7 @@ class MainScene extends ThreejsScene {
         // Update ocean waves
         if (this.vertData) {
             this.vertData.forEach((vd, idx) => {
-                const y = vd.initH + Math.sin((elapsedTime) + vd.phase) * vd.amplitude * 8;
+                const y = vd.initH + Math.sin((elapsedTime) + vd.phase) * vd.amplitude * 15;
                 this.oceanGeometry.attributes.position.setY(idx, y);
             });
             

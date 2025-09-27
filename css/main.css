@@ -266,44 +266,81 @@ a#drop-zone-link {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(0);
     z-index: 1000;
     display: none; /* Initially hidden */
     opacity: 0;
-    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+    transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+#start-button.show {
+    display: flex;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
 }
 
 #start-button.fade-out {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.8);
+    transform: translate(-50%, -50%) scale(0);
     pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53);
 }
 
-#start-intro-btn {
+#typewriter-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-family: 'Press Start 2P', monospace !important;
     font-size: 12px;
     letter-spacing: 1px;
-    padding: 20px 30px;
-    background: linear-gradient(45deg, #ffffff45, #ffffff1c);
-    border: 3px solid #ffffff;
-    border-radius: 0;
     color: #ffffff;
+    text-align: center;
+    padding: 25px 35px;
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+    border: 3px solid #ffffff;
+    /* border-radius: 8px; */
+    box-shadow:0 0 14px #0000008f;
     cursor: pointer;
-    text-transform: uppercase;
-    font-weight: bold;
-    box-shadow: 0 0 6px rgb(243 255 249 / 60%), inset 0 0 20px rgba(255, 255, 255, 0.2);
-    transition: all 0.3s ease;
     user-select: none;
-    -webkit-font-smoothing: none;
-    -moz-osx-font-smoothing: unset;
+    min-width: 250px;
+    min-height: 25px;
+    position: relative;
+    transition: all 0.5s ease;
+    /* transform: scale(1); */
 }
 
-#start-intro-btn:active {
-    transform: scale(0.95);
-    box-shadow: 0 0 15px rgb(255 255 255 / 40%), inset 0 0 15px rgba(255, 255, 255, 0.1);
+/* Speech bubble triangle - easily customizable position */
+#typewriter-text::before {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    
+    /* Triangle pointing down from bottom center */
+    bottom: -12px;
+    left: 15%;
+    transform: translateX(-50%);
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 12px solid #ffffff;
 }
 
-#start-intro-btn:hover {
-    background: linear-gradient(45deg, #57a2df, #397799);
-    transform: scale(1.05);
+/* Inner triangle for the speech bubble effect */
+#typewriter-text::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    
+    /* Inner triangle pointing down from bottom center */
+    bottom: -8px;
+    left: 15%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #2a2a2a;
+}
+
+span.Typewriter__cursor {
+    margin-left: 10px;
 }
