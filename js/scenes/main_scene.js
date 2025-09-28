@@ -1,4 +1,5 @@
 import ThreejsScene from '../base/scene.js';
+import DialogManager from '../base/DialogManager.js';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
@@ -42,10 +43,10 @@ class MainScene extends ThreejsScene {
         // Ocean physics configuration
         this.oceanLevel = -1; // Y position of ocean surface (matches oceanMesh.position.y)
         this.gravityConfig = {
-            normal: -400, // Normal gravity (above ocean)
-            underwater: 175, // Reduced upward force underwater (was 150, too strong)
-            damping: 0.88, // Very light damping (was 0.9, too aggressive)
-            hysteresis: 0 // Smaller hysteresis zone (was 1.5)
+            normal: -375, // Normal gravity (above ocean)
+            underwater: 75, 
+            damping: 0.85, 
+            hysteresis: 3.5
         };
 
         // Track underwater state for each body to prevent flickering
@@ -56,6 +57,7 @@ class MainScene extends ThreejsScene {
         this.mouse = new THREE.Vector2();
         this.selectedCube = null; // The cube currently being dragged
         this.offset = new THREE.Vector3(); // Offset between the cube and the mouse
+        this.lastClickTime = null; // For double-click detection
 
         this.pixelControls = null;
         this.pixelSizeController = null;
@@ -96,6 +98,9 @@ class MainScene extends ThreejsScene {
         // Start button and loading state
         this.startButton = null;
         this.allModelsLoaded = false;
+        
+        // Dialog Manager - will be initialized after camera and renderer are ready
+        this.dialogManager = null;
     }
 
     loadAudio() {
@@ -218,11 +223,15 @@ class MainScene extends ThreejsScene {
         
         this.controls.update();
 
+        // Initialize Dialog Manager
+        this.dialogManager = new DialogManager(this.camera, this.renderer);
+        this.setupDialogTranslations();
+
         // Add lights
         this.createLights();
 
-        // Add ground
-        this.createGround();
+        // Add island
+        this.createIsland();
 
         this.createOcean();
 
@@ -233,42 +242,42 @@ class MainScene extends ThreejsScene {
             'https://www.linkedin.com/in/leonardo-gutierrez-sato/',
             'LinkedIn',
             cubeSize, 
-            new THREE.Vector3(-30.1, 150, -30.1)
+            new THREE.Vector3(-30.1, 50, -30.1)
         );
         this.addNewCube(
             'textures/main/github.png', 
             'https://github.com/satoLG', 
             'GitHub',
             cubeSize, 
-            new THREE.Vector3(30.1, 150, 30.1)
+            new THREE.Vector3(30.1, 50, 30.1)
         );
         this.addNewCube(
             'textures/main/codepen.png', 
             'https://codepen.io/satoLG', 
             'CodePen',
             cubeSize, 
-            new THREE.Vector3(45.1, 150, -45.1)
+            new THREE.Vector3(45.1, 50, -45.1)
         );
         this.addNewCube(
             'textures/main/instagram.jpg', 
             'https://www.instagram.com/sato_leo_kun/',
             'Instagram',
             cubeSize, 
-            new THREE.Vector3(35, 180, -18)
+            new THREE.Vector3(35, 80, -18)
         );
         this.addNewCube(
             'textures/main/whatsapp.jpeg', 
             'https://wa.me/11952354083', 
             'WhatsApp',
             cubeSize, 
-            new THREE.Vector3(15, 180, -38)
+            new THREE.Vector3(15, 80, -38)
         );
         this.addNewCube(
             'textures/main/gmail.png', 
             'mailto:leonardogsato@gmail.com', 
-            'leonardogsato@gmail.com',
+            'Gmail',
             cubeSize, 
-            new THREE.Vector3(-20, 180, 38)
+            new THREE.Vector3(-20, 80, 38)
         );
 
         // Add text
@@ -294,92 +303,10 @@ class MainScene extends ThreejsScene {
             }, 2000);
         }
 
-        this.dropZone = document.querySelector('#drop-zone');
-        this.dropZone.addEventListener('mouseover', () => {
-            console.log(this.selectedCube)
-            if (this.selectedCube?.userData.url) {
-                if (this.selectedCube?.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
-                    const texture = this.selectedCube.material.map;
-                
-                    this.getPredominantColor(texture, (color) => {
-                        console.log('Predominant Color:', color);
-                
-                        // Apply the color to the drop zone
-                        this.dropZone.style.boxShadow = `${color} 0px 0px 15px`;
-                    });
-                }
-
-                this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
-                this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
-                this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
-            }
-        });
-
-        this.dropZone.addEventListener('mouseout', () => {
-            this.dropZone.style.boxShadow = 'none'; // Reset the box shadow
-            this.dropZone.classList.remove('hover');
-            // Reset the drop zone content if not hovering
-            this.dropZone.querySelector('#drop-zone-link').textContent = 'Solte aqui!';
-            this.dropZone.querySelector('#drop-zone-link').href = '';
-            this.dropZone.querySelector('#drop-zone-icon').src = 'img/external-link.png';
-        });
-
-        // Add touchstart event for touch devices
-        this.dropZone.addEventListener('touchstart', (event) => {
-            if (this.selectedCube?.userData.url) {
-                this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
-                this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
-                this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
-            }
-
-            // Prevent default behavior to avoid scrolling
-            event.preventDefault();
-        });
-
         //Add touchmove event for touch devices
         window.addEventListener('touchmove', (event) => {
-            if (this.selectedCube?.userData.url) {
-                // Get the touch position
-                const touch = event.touches[0];
-                const touchX = touch.clientX;
-                const touchY = touch.clientY;
-
-                // Get the drop zone's bounding rectangle
-                const dropZoneRect = this.dropZone.getBoundingClientRect();
-
-                // Check if the touch is over the drop zone
-                if (
-                    touchX >= dropZoneRect.left &&
-                    touchX <= dropZoneRect.right &&
-                    touchY >= dropZoneRect.top &&
-                    touchY <= dropZoneRect.bottom
-                ) {
-                    if (this.selectedCube?.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
-                        const texture = this.selectedCube.material.map;
-                    
-                        this.getPredominantColor(texture, (color) => {
-                            console.log('Predominant Color:', color);
-                    
-                            // Apply the color to the drop zone
-                            this.dropZone.style.boxShadow = `${color} 0px 0px 15px`;
-                        });
-                    }
-
-                    this.dropZone.classList.add('hover');
-                    // Update the drop zone content
-                    this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
-                    this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
-                    this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
-                }
-                else {
-                    this.dropZone.style.boxShadow = 'none'; // Reset the box shadow
-                    this.dropZone.classList.remove('hover');
-                    // Reset the drop zone content if not hovering
-                    this.dropZone.querySelector('#drop-zone-link').textContent = 'Solte aqui!';
-                    this.dropZone.querySelector('#drop-zone-link').href = '';
-                    this.dropZone.querySelector('#drop-zone-icon').src = 'img/external-link.png';
-                }
-            }
+            // Touch move functionality can be handled here if needed
+            // Currently simplified without drop zone logic
         });
 
         // Add mouse event listeners
@@ -473,8 +400,15 @@ class MainScene extends ThreejsScene {
         const loader = new GLTFLoader(loadingManager);
         loader.setDRACOLoader( dracoLoader );
 
-        //Load the laptop model
-        this.loadModel(loader, 'models/palmtree.glb', [0, 20, 0], [80, 80, 80], [0, 0, 0], true);
+        //Load the palm tree model
+        this.loadModel(loader, 'models/palmtree.glb', [0, 5, 0], [80, 80, 80], [0, 0, 0], true, (model) => {
+            // Store reference to palm tree for dialog interaction
+            this.palmTree = model;
+            
+            // Add click interaction for palm tree
+            model.userData.interactive = true;
+            model.userData.dialogKey = 'palm_tree_intro';
+        });
 
         // Load seagull models for intro animation
         this.loadSeagullModels(loader);
@@ -550,6 +484,38 @@ class MainScene extends ThreejsScene {
         const intersects = this.raycaster.intersectObjects(this.geometries);
     
         if (intersects.length > 0) {
+            // Check if the intersected object is an interactive model
+            const intersectedObject = intersects[0].object;
+            let parentModel = intersectedObject;
+            
+            // Find the root model by traversing up the hierarchy
+            while (parentModel.parent && parentModel.parent.type !== 'Scene') {
+                parentModel = parentModel.parent;
+            }
+            
+            // Check if this is an interactive model (but NOT a draggable cube)
+            if (parentModel.userData && parentModel.userData.interactive && !parentModel.userData.draggable) {
+                this.handleModelInteraction(parentModel, intersects[0].point);
+                return;
+            }
+            
+            // Handle cubes - they are both draggable AND can show dialogs on double-click
+            if (parentModel.userData && parentModel.userData.draggable) {
+                // Check for double-click to show dialog
+                const now = Date.now();
+                if (this.lastClickTime && (now - this.lastClickTime) < 300) {
+                    // Double-click detected - show dialog
+                    this.handleModelInteraction(parentModel, intersects[0].point);
+                    this.lastClickTime = null; // Reset to prevent triple-click issues
+                    return;
+                } else {
+                    // Single click - start dragging
+                    this.lastClickTime = now;
+                    // Continue to dragging logic below
+                }
+            }
+            
+            // Original cube interaction logic (dragging)
             // Prevent OrbitControls from handling this event
             event.preventDefault();
             event.stopPropagation();
@@ -584,11 +550,6 @@ class MainScene extends ThreejsScene {
             }
 
             console.log('Selected Cube:', this.selectedCube);
-            if (this.selectedCube?.userData.url) {
-                // Show the drop zone
-                this.dropZone.style.opacity = '1';
-                this.dropZone.style.pointerEvents = 'auto'; // Enable pointer events for the drop zone
-            }
         }
     }
     
@@ -596,6 +557,26 @@ class MainScene extends ThreejsScene {
         if (this.selectedCube) {
             // Prevent default only when dragging
             event.preventDefault();
+            
+            // Calculate mouse position in normalized device coordinates
+            this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    
+            // Create a plane perpendicular to the camera's viewing direction
+            // This allows movement in 3D space relative to the camera view
+            const cameraDirection = new THREE.Vector3();
+            this.camera.getWorldDirection(cameraDirection);
+            const plane = new THREE.Plane(cameraDirection, -cameraDirection.dot(this.selectedCube.position));
+    
+            console.log('Selected Cube:', this.selectedCube);
+        }
+    }
+    
+    onMouseMove(event) {
+        if (this.selectedCube) {
+            // Prevent default only when dragging
+            event.preventDefault();
+            event.stopPropagation();
             
             // Calculate mouse position in normalized device coordinates
             this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -620,49 +601,6 @@ class MainScene extends ThreejsScene {
             if (index !== -1) {
                 this.physicsBodies[index].position.copy(this.selectedCube?.position);
             }
-
-            // Add drop zone detection for mouse events (similar to touch events)
-            if (this.selectedCube?.userData.url) {
-                // Get the mouse position
-                const mouseX = event.clientX;
-                const mouseY = event.clientY;
-
-                // Get the drop zone's bounding rectangle
-                const dropZoneRect = this.dropZone.getBoundingClientRect();
-
-                // Check if the mouse is over the drop zone
-                if (
-                    mouseX >= dropZoneRect.left &&
-                    mouseX <= dropZoneRect.right &&
-                    mouseY >= dropZoneRect.top &&
-                    mouseY <= dropZoneRect.bottom
-                ) {
-                    if (this.selectedCube?.userData.url && this.selectedCube.material && this.selectedCube.material.map) {
-                        const texture = this.selectedCube.material.map;
-                    
-                        this.getPredominantColor(texture, (color) => {
-                            console.log('Predominant Color:', color);
-                    
-                            // Apply the color to the drop zone
-                            this.dropZone.style.boxShadow = `${color} 0px 0px 15px`;
-                        });
-                    }
-
-                    this.dropZone.classList.add('hover');
-                    // Update the drop zone content
-                    this.dropZone.querySelector('#drop-zone-link').textContent = this.selectedCube.userData.name;
-                    this.dropZone.querySelector('#drop-zone-link').href = this.selectedCube.userData.url;
-                    this.dropZone.querySelector('#drop-zone-icon').src = this.selectedCube.userData.texturePath;
-                }
-                else {
-                    this.dropZone.style.boxShadow = 'none'; // Reset the box shadow
-                    this.dropZone.classList.remove('hover');
-                    // Reset the drop zone content if not hovering
-                    this.dropZone.querySelector('#drop-zone-link').textContent = 'Solte aqui!';
-                    this.dropZone.querySelector('#drop-zone-link').href = '';
-                    this.dropZone.querySelector('#drop-zone-icon').src = 'img/external-link.png';
-                }
-            }
         }
     }
     
@@ -671,50 +609,27 @@ class MainScene extends ThreejsScene {
             // Re-enable OrbitControls
             this.controls.enabled = true;
             
-            // Check if the object is dropped inside the drop zone
-            const dropZoneRect = this.dropZone.getBoundingClientRect();
-            // Calculate mouse position in normalized device coordinates
-            const mouseX = event.clientX;
-            const mouseY = event.clientY;
-    
-            console.log('Mouse X:', mouseX, 'Mouse Y:', mouseY);
-            console.log('Drop Zone Rect:', dropZoneRect);
-            if (
-                mouseX >= dropZoneRect.left &&
-                mouseX <= dropZoneRect.right &&
-                mouseY >= dropZoneRect.top &&
-                mouseY <= dropZoneRect.bottom
-            ) {
-                if (this.selectedCube?.userData.url) {
-                    try {
-                        // Attempt to open the URL in a new tab
-                        const newWindow = window.open(this.selectedCube?.userData.url, '_blank');
-                        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-                            // Fallback: Navigate to the URL in the same tab
-                            window.location.href = this.selectedCube?.userData.url;
-                        }
-                    } catch (error) {
-                        console.error('Failed to open URL:', error);
-                        // Fallback: Navigate to the URL in the same tab
-                        window.location.href = this.selectedCube?.userData.url;
-                    } 
-                }
-            }
-    
-            // Hide the drop zone
-            this.dropZone.style.opacity = '0';
-            // this.dropZone.style.pointerEvents = 'none'; // Disable pointer events for the drop zone
-    
-            // Re-enable physics for the selected cube
+            // Reset the physics body to dynamic
             const index = this.geometries.indexOf(this.selectedCube);
             if (index !== -1) {
                 const body = this.physicsBodies[index];
                 body.type = CANNON.Body.DYNAMIC; // Make the body dynamic again
-                body.wakeUp(); // Wake up the body to ensure it responds to physics
+                
+                // Sync the physics body position with the visual object
+                body.position.copy(this.selectedCube.position);
+                body.quaternion.copy(this.selectedCube.quaternion);
+                
+                // Apply a small impulse to wake up the physics body
+                const impulse = new CANNON.Vec3(0, 1, 0); // Small upward impulse
+                body.applyImpulse(impulse);
+                
+                body.wakeUp(); // Ensure the body is awake
             }
-    
+            
             // Clear the selected cube
             this.selectedCube = null;
+            
+            console.log('Released cube');
         }
     }
 
@@ -777,6 +692,61 @@ class MainScene extends ThreejsScene {
     
             // Reuse the onMouseUp logic
             this.onMouseUp(simulatedMouseEvent);
+        }
+    }
+
+    /**
+     * Handle interaction with 3D models (like palm tree)
+     */
+    handleModelInteraction(model, intersectionPoint) {
+        if (!this.dialogManager) return;
+        
+        const dialogKey = model.userData.dialogKey;
+        if (!dialogKey) return;
+        
+        console.log(`Interacting with model: ${dialogKey}`);
+        
+        // Prevent rapid clicking by checking if a dialog is already being created
+        if (this.dialogManager.isTransitioning) {
+            console.log('Dialog interaction blocked - already transitioning');
+            return;
+        }
+        
+        // Special handling for cubes - they should open links and show dialog
+        if (model.userData.url && model.userData.name) {
+            const customText = `${model.userData.name}`;
+            
+            this.dialogManager.showDialog({
+                text: customText,
+                followObject: model,
+                followOffset: { x: 0, y: 100, z: 0 }, // Show dialog above the cube
+                trianglePosition: 'bottom',
+                autoClose: true,
+                autoCloseDelay: 4000,
+                typewriterSpeed: 50,
+                onComplete: (dialogId) => {
+                    // Make dialog clickable to open link
+                    const dialog = this.dialogManager.activeDialogs.get(dialogId);
+                    if (dialog) {
+                        dialog.dialogBox.style.cursor = 'pointer';
+                        dialog.dialogBox.addEventListener('click', () => {
+                            window.open(model.userData.url, '_blank');
+                            this.dialogManager.closeDialog(dialogId);
+                        });
+                    }
+                }
+            });
+        } else {
+            // Standard model interaction dialog
+            this.dialogManager.showDialog({
+                textKey: dialogKey,
+                followObject: model,
+                followOffset: { x: 0, y: 150, z: 0 }, // Show dialog above the model
+                trianglePosition: 'bottom',
+                autoClose: true,
+                autoCloseDelay: 5000,
+                typewriterSpeed: 75
+            });
         }
     }
 
@@ -876,6 +846,13 @@ class MainScene extends ThreejsScene {
             // Store the cube and its physics body
             this.geometries.push(newCube);
             this.physicsBodies.push(cubeBody);
+            
+            // Add interaction data for cubes - they are draggable AND can show dialogs
+            newCube.userData.interactive = true;
+            newCube.userData.draggable = true; // Mark as draggable
+            newCube.userData.dialogKey = 'cube_interaction';
+            newCube.userData.url = cubeUrl;
+            newCube.userData.name = cubeName;
 
             console.log('New cube added:', newCube);            
         });
@@ -1180,29 +1157,29 @@ class MainScene extends ThreejsScene {
     }
 
     setupStartButton() {
-        // Initialize typewriter effect
-        this.initializeTypewriter();
+        // Initialize dialog with DialogManager instead of direct typewriter
+        this.initializeWelcomeDialog();
     }
 
-    initializeTypewriter() {
-        const typewriterElement = document.getElementById('typewriter-text');
+    initializeWelcomeDialog() {
+        if (!this.dialogManager) {
+            console.error('DialogManager not initialized');
+            return;
+        }
         
-        if (typewriterElement && typeof Typewriter !== 'undefined') {
-            // Wait for the dialog box animation to complete before starting typewriter
-            setTimeout(() => {
-                const typewriter = new Typewriter(typewriterElement, {
-                    loop: false,
-                    delay: 85,
-                    deleteSpeed: 50,
-                    cursor: '⯆', // Enable the typewriter cursor
-                });
-
-                typewriter
-                    .typeString('WHERE AM I...')
-                    .callFunction(() => {
-                        // Make the dialog box clickable after typewriter finishes
-                        typewriterElement.style.cursor = 'pointer';
-                        typewriterElement.addEventListener('click', () => {
+        // Wait for the dialog box animation to complete before starting typewriter
+        setTimeout(() => {
+            const welcomeDialogId = this.dialogManager.showDialog({
+                textKey: 'welcome',
+                position: { x: 50, y: 50, anchor: 'center' },
+                typewriterSpeed: 85,
+                onComplete: (dialogId) => {
+                    // Make the dialog box clickable after typewriter finishes
+                    const dialog = this.dialogManager.activeDialogs.get(dialogId);
+                    if (dialog) {
+                        dialog.dialogBox.style.cursor = 'pointer';
+                        dialog.dialogBox.addEventListener('click', () => {
+                            this.dialogManager.closeDialog(dialogId);
                             this.hideStartButton();
                             
                             // Wait a moment then start intro
@@ -1220,27 +1197,10 @@ class MainScene extends ThreejsScene {
                                 }, 100);
                             }
                         });
-                    })
-                    .start();
-            }, 900); // Wait 900ms for the bouncy animation to complete
-        } else {
-            console.error('Typewriter library not loaded or element not found');
-            // Fallback: show text immediately and make it clickable (with delay)
-            if (typewriterElement) {
-                setTimeout(() => {
-                    typewriterElement.textContent = 'WHERE AM I ?';
-                    typewriterElement.style.cursor = 'pointer';
-                    typewriterElement.addEventListener('click', () => {
-                        this.hideStartButton();
-                        if (this.allModelsLoaded) {
-                            setTimeout(() => {
-                                this.startIntroAnimation();
-                            }, 800);
-                        }
-                    });
-                }, 900);
-            }
-        }
+                    }
+                }
+            });
+        }, 900); // Wait 900ms for the bouncy animation to complete
     }
 
     hideStartButton() {
@@ -1489,7 +1449,7 @@ class MainScene extends ThreejsScene {
         requestAnimationFrame(animate);
     }
 
-    loadModel(loader, path, position, scale, rotation = [0, 0, 0], allowShadow = false) {
+    loadModel(loader, path, position, scale, rotation = [0, 0, 0], allowShadow = false, onModelLoaded = null) {
         loader.load(path, (gltf) => {
             const model = gltf.scene;
             model.traverse(function (child) {
@@ -1557,6 +1517,11 @@ class MainScene extends ThreejsScene {
                 });
                 this.animationMixers.push(mixer);
             }
+            
+            // Call callback if provided
+            if (onModelLoaded && typeof onModelLoaded === 'function') {
+                onModelLoaded(model);
+            }
         });
     }
 
@@ -1598,6 +1563,10 @@ class MainScene extends ThreejsScene {
                 
                 this.scene.add(seagull1);
                 this.seagulls.push(seagull1);
+                
+                // Add interaction data for seagull
+                seagull1.userData.interactive = true;
+                seagull1.userData.dialogKey = 'seagull_arrival';
                 
                 // Setup animation mixer for first seagull
                 if (gltf.animations && gltf.animations.length > 0) {
@@ -1871,88 +1840,119 @@ class MainScene extends ThreejsScene {
         this.scene.add(directionalLight)
     }
 
-    createGround() {
+    createIsland() {
         const textureLoader = new THREE.TextureLoader()
 
-        // Floor
-        const floorColorTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_color_1k.png')
-        const floorARMTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_ambient_occlusion_1k.png')
-        const floorNormalTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_normal_gl_1k.png')
-        const floorDisplacementTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_height_1k.png')
+        // Top surface textures (sand)
+        const topColorTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_color_1k.png')
+        const topARMTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_ambient_occlusion_1k.png')
+        const topNormalTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_normal_gl_1k.png')
+        const topDisplacementTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_height_1k.png')
 
-        floorColorTexture.colorSpace = THREE.SRGBColorSpace
+        // Set up top texture properties
+        topColorTexture.colorSpace = THREE.SRGBColorSpace
+        topColorTexture.repeat.set(4, 4)
+        topARMTexture.repeat.set(4, 4)
+        topNormalTexture.repeat.set(4, 4)
+        topDisplacementTexture.repeat.set(4, 4)
 
-        floorColorTexture.repeat.set(12, 12)
-        floorARMTexture.repeat.set(12, 12)
-        floorNormalTexture.repeat.set(12, 12)
-        floorDisplacementTexture.repeat.set(12, 12)
+        topColorTexture.wrapS = topColorTexture.wrapT = THREE.RepeatWrapping
+        topARMTexture.wrapS = topARMTexture.wrapT = THREE.RepeatWrapping
+        topNormalTexture.wrapS = topNormalTexture.wrapT = THREE.RepeatWrapping
+        topDisplacementTexture.wrapS = topDisplacementTexture.wrapT = THREE.RepeatWrapping
 
-        floorColorTexture.wrapS = THREE.RepeatWrapping
-        floorARMTexture.wrapS = THREE.RepeatWrapping
-        floorNormalTexture.wrapS = THREE.RepeatWrapping
-        floorDisplacementTexture.wrapS = THREE.RepeatWrapping
+        // Side surface textures (rock/dirt - reusing sand with different color and scaling)
+        const sideColorTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_color_1k.png')
+        const sideARMTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_ambient_occlusion_1k.png')
+        const sideNormalTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_normal_gl_1k.png')
+        const sideDisplacementTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_height_1k.png')
 
-        floorColorTexture.wrapT = THREE.RepeatWrapping
-        floorARMTexture.wrapT = THREE.RepeatWrapping
-        floorNormalTexture.wrapT = THREE.RepeatWrapping
-        floorDisplacementTexture.wrapT = THREE.RepeatWrapping
+        // Set up side texture properties with different scaling for variation
+        sideColorTexture.colorSpace = THREE.SRGBColorSpace
+        sideColorTexture.repeat.set(4, 4) // Horizontal repeat for cylinder sides
+        sideARMTexture.repeat.set(4, 4)
+        sideNormalTexture.repeat.set(4, 4)
+        sideDisplacementTexture.repeat.set(4, 4)
 
-        const groundGeometry = new THREE.SphereGeometry( 
-            1000, 
-            600, 
-            600, 
-            0, 
-            Math.PI * 2, 
-            0, 
-            Math.PI // Ground half-sphere
-        ); 
-        //const groundGeometry = new THREE.PlaneGeometry(520, 520, 256, 256);
-        const groundMaterial = new THREE.MeshStandardMaterial({
-            // alphaMap: floorAlphaTexture,
-            transparent: true,
-            map: floorColorTexture,
-            aoMap: floorARMTexture,
-            roughnessMap: floorARMTexture,
-            metalnessMap: floorARMTexture,
-            normalMap: floorNormalTexture,
-            displacementMap: floorDisplacementTexture,
-            displacementScale: 25,
-            displacementBias: -0.2,
-            side: THREE.DoubleSide,
-            // Ensure proper lighting
+        sideColorTexture.wrapS = sideColorTexture.wrapT = THREE.RepeatWrapping
+        sideARMTexture.wrapS = sideARMTexture.wrapT = THREE.RepeatWrapping
+        sideNormalTexture.wrapS = sideNormalTexture.wrapT = THREE.RepeatWrapping
+        sideDisplacementTexture.wrapS = sideDisplacementTexture.wrapT = THREE.RepeatWrapping
+
+        // Create cylinder geometry for the island
+        const islandGeometry = new THREE.CylinderGeometry(
+            200, // radiusTop
+            200, // radiusBottom  
+            20,  // height
+            128,  // radialSegments
+            8,   // heightSegments
+            false // openEnded
+        )
+
+        // Create materials for different surfaces
+        const topMaterial = new THREE.MeshStandardMaterial({
+            map: topColorTexture,
+            aoMap: topARMTexture,
+            roughnessMap: topARMTexture,
+            metalnessMap: topARMTexture,
+            normalMap: topNormalTexture,
+            displacementMap: topDisplacementTexture,
+            displacementScale: 10, // Reduced from 15 to prevent gaps
+            displacementBias: -6, // Adjusted to push displacement inward
             roughness: 1,
             metalness: 0
-        });
+        })
 
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.receiveShadow = true;
-        this.scene.add(ground);
-        ground.position.set(0, -940, 0);
-        ground.rotation.set(-Math.PI / 2, 0, 0);
+        const sideMaterial = new THREE.MeshStandardMaterial({
+            map: sideColorTexture,
+            aoMap: sideARMTexture,
+            roughnessMap: sideARMTexture,
+            metalnessMap: sideARMTexture,
+            normalMap: sideNormalTexture,
+            // color: new THREE.Color(0.7, 0.5, 0.4), // Brownish tint for sides
+            displacementMap: sideDisplacementTexture,
+            displacementScale: 8,
+            displacementBias: -4,
+            roughness: 0.9,
+            metalness: 0
+        })
+
+        // Create material array: [side, top, bottom]
+        const islandMaterials = [
+            sideMaterial, // sides
+            topMaterial,  // top
+            sideMaterial  // bottom (same as sides)
+        ]
+
+        let islandPosition = new THREE.Vector3(0, 10, 0)
+
+        // Create the island mesh
+        const island = new THREE.Mesh(islandGeometry, islandMaterials)
+        island.receiveShadow = true
+        island.castShadow = true
+        island.position.copy(islandPosition)
+        this.scene.add(island)
         
-    
-        // Add physics body for the ground
-        const radius = 1000; // Match your THREE.SphereGeometry radius
-        const groundShape = new CANNON.Sphere(radius);
-        const groundBody = new CANNON.Body({
+        // Create matching physics body - cylinder
+        const islandShape = new CANNON.Cylinder(200, 200, 20, 16) // radius1, radius2, height, segments
+        const islandBody = new CANNON.Body({
             mass: 0, // Static body
-            shape: groundShape,
+            shape: islandShape,
             material: new CANNON.Material()
-        });
-        groundBody.position.set(0, -radius+60, 0); // Match original positioning exactly
-        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Match the rotation of the Three.js ground
+        })
+        islandBody.position.copy(islandPosition) // Center the physics body with visual
     
-        // Add a physics material for the ground - very stable, no bouncing
-        const groundPhysicsMaterial = new CANNON.Material({
+        // Add physics material - stable, no bouncing
+        const islandPhysicsMaterial = new CANNON.Material({
             friction: 0.6,
-            restitution: 0 // ACTUALLY no bouncing (was 0.2)
-        });
-        groundBody.material = groundPhysicsMaterial;
+            restitution: 0
+        })
+        islandBody.material = islandPhysicsMaterial
     
-        this.physicsWorld.addBody(groundBody);
+        this.physicsWorld.addBody(islandBody)
     
-        // Store the ground body for contact materials
-        this.groundBody = groundBody;
+        // Store the island body for contact materials
+        this.groundBody = islandBody
     }
 
     createOcean() {
@@ -2093,7 +2093,12 @@ class MainScene extends ThreejsScene {
             // Get or initialize the underwater state for this body
             if (!this.bodyUnderwaterStates.has(body)) {
                 this.bodyUnderwaterStates.set(body, {
-                    isUnderwater: false
+                    isUnderwater: false,
+                    timeUnderwater: 0, // Track how long it's been underwater
+                    isSettled: false, // Track if object has settled on water surface
+                    isFullySettled: false, // Track if object should stop moving completely
+                    settledY: 0, // Store the Y position where object settled
+                    lastVelocityCheck: 0 // Track time since last velocity check
                 });
             }
             
@@ -2116,19 +2121,83 @@ class MainScene extends ThreejsScene {
             // Update state if it changed
             if (shouldBeUnderwater !== state.isUnderwater) {
                 state.isUnderwater = shouldBeUnderwater;
+                if (shouldBeUnderwater) {
+                    state.timeUnderwater = 0; // Reset timer when entering water
+                    state.isSettled = false; // Reset settled state
+                }
             }
             
-            // Apply simple underwater physics ONLY when underwater
+            // Update underwater timer
+            if (state.isUnderwater) {
+                state.timeUnderwater += 1/60; // Increment by timestep (assuming 60fps)
+                
+                // Check if object should be considered "settled" (after 2 seconds)
+                if (state.timeUnderwater > 2.0 && !state.isSettled) {
+                    state.isSettled = true;
+                    state.settledY = currentY; // Record settle position
+                    console.log('Object initial settle on water surface at Y:', currentY);
+                }
+                
+                // Check if object should be fully settled (after 5 seconds of low velocity)
+                if (state.isSettled && !state.isFullySettled) {
+                    const velocity = body.velocity.length();
+                    if (velocity < 0.5) { // Very low velocity threshold
+                        state.lastVelocityCheck += 1/60;
+                        if (state.lastVelocityCheck > 3.0) { // 3 seconds of low velocity
+                            state.isFullySettled = true;
+                            state.settledY = currentY; // Final settle position
+                            console.log('Object fully settled - stopping all movement at Y:', currentY);
+                        }
+                    } else {
+                        state.lastVelocityCheck = 0; // Reset timer if velocity increases
+                    }
+                }
+            }
+            
+            // Apply underwater physics
             if (state.isUnderwater) {
                 const mass = body.mass;
                 
-                // Replace world gravity with buoyancy force
-                const netUpwardForce = (-this.gravityConfig.normal + this.gravityConfig.underwater) * mass;
-                body.force.set(0, netUpwardForce, 0);
-                
-                // Apply underwater damping ONCE per frame
-                body.velocity.scale(this.gravityConfig.damping, body.velocity);
-                body.angularVelocity.scale(this.gravityConfig.damping, body.angularVelocity);
+                if (state.isFullySettled) {
+                    // Fully settled - no forces, just maintain position
+                    body.force.set(0, 0, 0);
+                    
+                    // Aggressive damping to stop all movement
+                    body.velocity.scale(0.8, body.velocity);
+                    body.angularVelocity.scale(0.8, body.angularVelocity);
+                    
+                    // If velocity is very small, set it to zero
+                    if (body.velocity.length() < 0.1) {
+                        body.velocity.set(0, 0, 0);
+                    }
+                    if (body.angularVelocity.length() < 0.1) {
+                        body.angularVelocity.set(0, 0, 0);
+                    }
+                    
+                    // Keep object at settled position
+                    const positionDrift = currentY - state.settledY;
+                    if (Math.abs(positionDrift) > 0.5) {
+                        body.position.y = state.settledY;
+                    }
+                    
+                } else if (!state.isSettled) {
+                    // Initial settling phase - active buoyancy and damping
+                    const netUpwardForce = (-this.gravityConfig.normal + this.gravityConfig.underwater) * mass;
+                    body.force.set(0, netUpwardForce, 0);
+                    
+                    // Apply underwater damping
+                    body.velocity.scale(this.gravityConfig.damping, body.velocity);
+                    body.angularVelocity.scale(this.gravityConfig.damping, body.angularVelocity);
+                    
+                } else {
+                    // Intermediate settling phase - very gentle buoyancy only
+                    const buoyancyForce = (-this.gravityConfig.normal + 50) * mass; // Much weaker buoyancy
+                    body.force.set(0, buoyancyForce, 0);
+                    
+                    // Strong damping to encourage settling
+                    body.velocity.scale(0.9, body.velocity);
+                    body.angularVelocity.scale(0.9, body.angularVelocity);
+                }
             }
             // When above water, let normal world gravity apply (no custom forces needed)
         });
@@ -2225,7 +2294,7 @@ class MainScene extends ThreejsScene {
         // Update ocean waves
         if (this.vertData) {
             this.vertData.forEach((vd, idx) => {
-                const y = vd.initH + Math.sin((elapsedTime) + vd.phase) * vd.amplitude * 15;
+                const y = vd.initH + Math.sin((elapsedTime) + vd.phase) * vd.amplitude * 25;
                 this.oceanGeometry.attributes.position.setY(idx, y);
             });
             
@@ -2237,6 +2306,60 @@ class MainScene extends ThreejsScene {
         // if (this.oceanMaterial) {
         //     this.oceanMaterial.uniforms.time.value = elapsedTime;
         // }
+
+        // Update dialog positions for dialogs following 3D objects
+        if (this.dialogManager) {
+            this.dialogManager.updateFollowingDialogs();
+        }
+    }
+    
+    /**
+     * Setup dialog translations for different languages
+     */
+    setupDialogTranslations() {
+        if (!this.dialogManager) return;
+        
+        // Welcome message translations
+        this.dialogManager.addTranslation('welcome', {
+            'en': 'WHERE AM I...',
+            'pt': 'ONDE ESTOU...',
+            'es': 'DÓNDE ESTOY...',
+            'fr': 'OÙ SUIS-JE...',
+            'de': 'WO BIN ICH...',
+            'ja': 'ここはどこ...',
+            'zh': '我在哪里...'
+        });
+        
+        // Example interactions with objects
+        this.dialogManager.addTranslation('palm_tree_intro', {
+            'en': 'A lone palm tree stands tall...',
+            'pt': 'Uma palmeira solitária se ergue...',
+            'es': 'Una palmera solitaria se alza...',
+            'fr': 'Un palmier solitaire se dresse...',
+            'de': 'Eine einsame Palme steht hoch...',
+            'ja': '一本のヤシの木が立っている...',
+            'zh': '一棵孤独的棕榈树屹立着...'
+        });
+        
+        this.dialogManager.addTranslation('cube_interaction', {
+            'en': 'These floating cubes... they seem familiar. Try dragging them around!',
+            'pt': 'Esses cubos flutuantes... parecem familiares. Tente arrastá-los!',
+            'es': 'Estos cubos flotantes... parecen familiares. ¡Intenta arrastrarlos!',
+            'fr': 'Ces cubes flottants... ils semblent familiers. Essayez de les faire glisser!',
+            'de': 'Diese schwebenden Würfel... sie scheinen vertraut. Versuchen Sie, sie zu ziehen!',
+            'ja': 'これらの浮遊する立方体...見覚えがある。ドラッグしてみて！',
+            'zh': '这些漂浮的方块...看起来很熟悉。试着拖动它们！'
+        });
+        
+        this.dialogManager.addTranslation('seagull_arrival', {
+            'en': 'Seagulls... perhaps I am not alone.',
+            'pt': 'Gaivotas... talvez eu não esteja sozinho.',
+            'es': 'Gaviotas... quizás no estoy solo.',
+            'fr': 'Des mouettes... peut-être ne suis-je pas seul.',
+            'de': 'Möwen... vielleicht bin ich nicht allein.',
+            'ja': 'カモメ...私は一人ではないのかもしれない。',
+            'zh': '海鸥...也许我并不孤单。'
+        });
     }
 }
 
