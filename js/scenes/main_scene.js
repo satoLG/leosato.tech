@@ -188,36 +188,39 @@ class MainScene extends ThreejsScene {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.target.set(0, 3200, 0); // Start target high in the sky
+        this.controls.target.set(0, 0, 0); // Start target at scene center
         this.controls.enableZoom = true; // Enable zooming
         this.controls.enablePan = true; // Enable panning
         this.controls.maxPolarAngle = Math.PI / 2.2; // Allow camera to look down to ground level
         this.controls.minPolarAngle = Math.PI / 6; // Allow camera to look up (30 degrees from vertical)
-        this.controls.minDistance = 700; // Minimum zoom distance
-        this.controls.maxDistance = 1500; // Maximum zoom distance
+        this.controls.minDistance = 300; // Minimum zoom distance
+        this.controls.maxDistance = 1200; // Maximum zoom distance
         
         // DISABLE OrbitControls initially - will be enabled after intro animation
         this.controls.enabled = false;
         
-        // Set camera to start HIGH UP in the sky looking down at nothing but sky
-        const maxDistance = 1500;
-        const targetPosition = new THREE.Vector3(0, -5, 0);
+        // Set camera to start HIGH UP in the sky - MUST match intro animation start values
+        const startDistance = 1500; // Same as animation
+        const targetPosition = new THREE.Vector3(0, -5, 0); // Same as animation target
         
-        // Position camera HIGH UP in the sky - much higher than the scene
+        // Position camera HIGH UP in the sky - exactly like animation start
         const x = 0;
-        const y = 2200; // WAY HIGH UP - above everything
-        const z = targetPosition.z + maxDistance;
+        const startY = 2200; // Same as animation startY - High up in the sky
+        const z = targetPosition.z + startDistance;
         
-        this.camera.position.set(x, y, z);
+        this.camera.position.set(x, startY, z);
         
-        // Look straight up at the sky (so user sees nothing but sky initially)
-        const skyPoint = new THREE.Vector3(0, y + 2500, 0); // Point even higher in the sky
-        this.camera.lookAt(skyPoint);
+        // Set OrbitControls target high in the sky - same as animation
+        const skyTargetY = startY + 1500; // Same calculation as animation
+        this.controls.target.set(targetPosition.x, skyTargetY, targetPosition.z);
+        this.controls.update(); // Apply the target
         
-        console.log('Initial camera setup:', {
+        console.log('Initial camera setup (matching intro animation):', {
             position: this.camera.position,
-            skyPoint: skyPoint,
-            cameraY: y,
+            target: this.controls.target,
+            startDistance: startDistance,
+            startY: startY,
+            skyTargetY: skyTargetY,
             lookingUp: true
         });
         
@@ -349,7 +352,7 @@ class MainScene extends ThreejsScene {
 
         // Current pixel size state
         this.pixelControls = {
-            pixelSize: 50,
+            pixelSize: 1,
             isHighPixel: false, // false = low pixel (100), true = high pixel (10)
             isAnimating: false // Flag to prevent multiple animations
         };
@@ -400,15 +403,53 @@ class MainScene extends ThreejsScene {
         const loader = new GLTFLoader(loadingManager);
         loader.setDRACOLoader( dracoLoader );
 
-        //Load the palm tree model
-        this.loadModel(loader, 'models/palmtree.glb', [0, 5, 0], [80, 80, 80], [0, 0, 0], true, (model) => {
-            // Store reference to palm tree for dialog interaction
-            this.palmTree = model;
-            
-            // Add click interaction for palm tree
-            model.userData.interactive = true;
-            model.userData.dialogKey = 'palm_tree_intro';
-        });
+        //Load the tree model - positioned to come out of island top
+        this.loadModel(loader, 'models/tree.glb', [0, 25, 0], [25, 25, 25], [0, 0, 0], true, 
+            null, // no physics config - tree doesn't need collision
+            (model) => {
+                // Store reference to palm tree for dialog interaction
+                this.tree = model;
+                
+                // Add click interaction for palm tree
+                model.userData.interactive = true;
+                model.userData.dialogKey = 'tree_intro';
+            }
+        );
+
+        this.loadModel(loader, 'models/rock.glb', [250, 15, -250], [1, 1, 1], [0, 0, 0], true, 
+            null, // no physics config - tree doesn't need collision
+            (model) => {
+                // Store reference to rock for dialog interaction
+                this.rock = model;
+
+                // Add click interaction for rock
+                model.userData.interactive = true;
+                model.userData.dialogKey = 'rock_intro';
+            }
+        );
+
+        this.loadModel(loader, 'models/rock.glb', [-250, 15, -90], [.7, .7, .7], [0, Math.PI / 2, 0], true, 
+            null, // no physics config - tree doesn't need collision
+            (model) => {
+                // Store reference to rock for dialog interaction
+                this.rock = model;
+
+                // Add click interaction for rock
+                model.userData.interactive = true;
+                model.userData.dialogKey = 'rock_intro';
+            }
+        );
+        this.loadModel(loader, 'models/rock.glb', [-255, 10, -5], [.5, .5, .5], [0, Math.PI / 4, 0], true, 
+            null, // no physics config - tree doesn't need collision
+            (model) => {
+                // Store reference to rock for dialog interaction
+                this.rock = model;
+
+                // Add click interaction for rock
+                model.userData.interactive = true;
+                model.userData.dialogKey = 'rock_intro';
+            }
+        );
 
         // Load seagull models for intro animation
         this.loadSeagullModels(loader);
@@ -725,14 +766,10 @@ class MainScene extends ThreejsScene {
                 autoCloseDelay: 4000,
                 typewriterSpeed: 50,
                 onComplete: (dialogId) => {
-                    // Make dialog clickable to open link
+                    // Store the URL in dialog for click handling
                     const dialog = this.dialogManager.activeDialogs.get(dialogId);
                     if (dialog) {
-                        dialog.dialogBox.style.cursor = 'pointer';
-                        dialog.dialogBox.addEventListener('click', () => {
-                            window.open(model.userData.url, '_blank');
-                            this.dialogManager.closeDialog(dialogId);
-                        });
+                        dialog.linkUrl = model.userData.url;
                     }
                 }
             });
@@ -813,48 +850,50 @@ class MainScene extends ThreejsScene {
 
             // Add the cube to the scene
             this.scene.add(newCube);
+            
+            // CRITICAL: Add to geometries array for physics synchronization
+            this.geometries.push(newCube);
 
-            // Add a physics body for the cube
-            const cubeShape = new CANNON.Box(new CANNON.Vec3(cubeSize/2, (cubeSize/2), cubeSize/2)); // Half extents of the cube (match the size of the RoundedBoxGeometry)
+            // Create physics body for the cube
+            const cubeShape = new CANNON.Box(new CANNON.Vec3(cubeSize/2, cubeSize/2, cubeSize/2));
             const cubeBody = new CANNON.Body({
-                mass: 1, // Dynamic body
+                mass: 1,
                 position: new CANNON.Vec3(cubePosition.x, cubePosition.y, cubePosition.z),
                 shape: cubeShape,
-                // Simple damping to prevent endless bouncing
                 linearDamping: 0.02,
-                angularDamping: 0.02
+                angularDamping: 0.02,
+                material: new CANNON.Material({ friction: 0.6, restitution: 0 })
             });
-
-            // Set random rotation for the physics body
-            // cubeBody.quaternion.setFromEuler(randomRotation.x, randomRotation.y, randomRotation.z);
-
-            // Add bouncing effect by setting restitution
-            const cubePhysicsMaterial = new CANNON.Material();
-            cubeBody.material = cubePhysicsMaterial;
-
-            // Create a contact material for absolutely no bouncing
-            const groundMaterial = this.groundBody.material; // Assuming the ground has a material
-            const contactMaterial = new CANNON.ContactMaterial(cubePhysicsMaterial, groundMaterial, {
-                restitution: 0, // ACTUALLY no bouncing (was 0.2)
-                friction: 0.6, // Moderate friction
-            });
-            this.physicsWorld.addContactMaterial(contactMaterial);
-
-            // Add the physics body to the world
+            
             this.physicsWorld.addBody(cubeBody);
-
-            // Store the cube and its physics body
-            this.geometries.push(newCube);
             this.physicsBodies.push(cubeBody);
+            newCube.userData.physicsBody = cubeBody;
+            
+            // Create contact material between cube and island for proper collision
+            if (this.groundBody && this.groundBody.material) {
+                const cubeIslandContact = new CANNON.ContactMaterial(
+                    cubeBody.material,
+                    this.groundBody.material,
+                    {
+                        friction: 0.8,
+                        restitution: 0.1, // Slight bounce
+                        contactEquationStiffness: 1e8,
+                        contactEquationRelaxation: 3,
+                        frictionEquationStiffness: 1e8,
+                        frictionEquationRelaxation: 3
+                    }
+                );
+                this.physicsWorld.addContactMaterial(cubeIslandContact);
+            }
             
             // Add interaction data for cubes - they are draggable AND can show dialogs
             newCube.userData.interactive = true;
-            newCube.userData.draggable = true; // Mark as draggable
+            newCube.userData.draggable = true;
             newCube.userData.dialogKey = 'cube_interaction';
             newCube.userData.url = cubeUrl;
             newCube.userData.name = cubeName;
 
-            console.log('New cube added:', newCube);            
+            console.log('New cube added with physics:', newCube);            
         });
     }
 
@@ -1167,40 +1206,38 @@ class MainScene extends ThreejsScene {
             return;
         }
         
-        // Wait for the dialog box animation to complete before starting typewriter
-        setTimeout(() => {
-            const welcomeDialogId = this.dialogManager.showDialog({
-                textKey: 'welcome',
-                position: { x: 50, y: 50, anchor: 'center' },
-                typewriterSpeed: 85,
-                onComplete: (dialogId) => {
-                    // Make the dialog box clickable after typewriter finishes
-                    const dialog = this.dialogManager.activeDialogs.get(dialogId);
-                    if (dialog) {
-                        dialog.dialogBox.style.cursor = 'pointer';
-                        dialog.dialogBox.addEventListener('click', () => {
-                            this.dialogManager.closeDialog(dialogId);
-                            this.hideStartButton();
-                            
-                            // Wait a moment then start intro
-                            if (this.allModelsLoaded) {
-                                setTimeout(() => {
-                                    this.startIntroAnimation();
-                                }, 800); // Wait for shrinking animation
-                            } else {
-                                console.log('Dialog clicked, waiting for models to load...');
-                                const checkModels = setInterval(() => {
-                                    if (this.allModelsLoaded) {
-                                        clearInterval(checkModels);
-                                        this.startIntroAnimation();
-                                    }
-                                }, 100);
-                            }
-                        });
-                    }
+        console.log('Initializing welcome dialog - creating with animation');
+        
+        // Create dialog immediately - the DialogManager handles the pop-in animation
+        const welcomeDialogId = this.dialogManager.showDialog({
+            textSequence: [
+                { textKey: 'welcome_1' },
+                { textKey: 'welcome_2' },
+                { textKey: 'welcome_3' }
+            ],
+            position: { x: 50, y: 50, anchor: 'center' },
+            typewriterSpeed: 85,
+            onSequenceComplete: (dialogId) => {
+                console.log('Welcome sequence completed');
+                this.dialogManager.closeDialog(dialogId);
+                this.hideStartButton();
+                
+                // Wait a moment then start intro
+                if (this.allModelsLoaded) {
+                    setTimeout(() => {
+                        this.startIntroAnimation();
+                    }, 800); // Wait for shrinking animation
+                } else {
+                    console.log('Dialog sequence completed, waiting for models to load...');
+                    const checkModels = setInterval(() => {
+                        if (this.allModelsLoaded) {
+                            clearInterval(checkModels);
+                            this.startIntroAnimation();
+                        }
+                    }, 100);
                 }
-            });
-        }, 900); // Wait 900ms for the bouncy animation to complete
+            }
+        });
     }
 
     hideStartButton() {
@@ -1449,7 +1486,18 @@ class MainScene extends ThreejsScene {
         requestAnimationFrame(animate);
     }
 
-    loadModel(loader, path, position, scale, rotation = [0, 0, 0], allowShadow = false, onModelLoaded = null) {
+    /**
+     * Load a 3D model with physics configuration options
+     * @param {GLTFLoader} loader - The GLTF loader instance
+     * @param {string} path - Path to the model file
+     * @param {Array} position - [x, y, z] position
+     * @param {Array} scale - [x, y, z] scale
+     * @param {Array} rotation - [x, y, z] rotation in radians
+     * @param {boolean} allowShadow - Enable shadow casting/receiving
+     * @param {Object} physicsConfig - Physics configuration object
+     * @param {Function} onModelLoaded - Callback when model loads
+     */
+    loadModel(loader, path, position, scale, rotation = [0, 0, 0], allowShadow = false, physicsConfig = null, onModelLoaded = null) {
         loader.load(path, (gltf) => {
             const model = gltf.scene;
             model.traverse(function (child) {
@@ -1463,59 +1511,24 @@ class MainScene extends ThreejsScene {
             model.rotation.set(...rotation);
             this.scene.add(model);
 
-            // --- Improved bounding box calculation ---
-            // Find the largest visible mesh in the model
-            let largestMesh = null;
-            let largestVolume = 0;
-            model.traverse((child) => {
-                if (child.isMesh && child.visible) {
-                    const box = new THREE.Box3().setFromObject(child);
-                    const size = new THREE.Vector3();
-                    box.getSize(size);
-                    const volume = size.x * size.y * size.z;
-                    if (volume > largestVolume) {
-                        largestVolume = volume;
-                        largestMesh = child;
-                    }
-                }
-            });
-
-            let box, size;
-            if (largestMesh) {
-                box = new THREE.Box3().setFromObject(largestMesh);
-                size = new THREE.Vector3();
-                box.getSize(size);
-            } else {
-                // fallback to whole model
-                box = new THREE.Box3().setFromObject(model);
-                size = new THREE.Vector3();
-                box.getSize(size);
+            // Handle physics based on configuration
+            if (physicsConfig && physicsConfig.type !== 'none') {
+                this.createModelPhysics(model, physicsConfig);
             }
 
-            // Optionally, visualize the bounding box for debugging
-            // const helper = new THREE.Box3Helper(box, 0xff0000);
-            // this.scene.add(helper);
-
-            // Create Cannon.js box shape (half extents)
-            const boxShape = new CANNON.Box(new CANNON.Vec3(size.x / 2, 0, size.z / 2));
-            const boxBody = new CANNON.Body({
-                mass: 1,
-                position: new CANNON.Vec3(model.position.x, model.position.y, model.position.z),
-                shape: boxShape,
-            });
-
-            boxBody.quaternion.setFromEuler(rotation[0], rotation[1], rotation[2]);
-
-            // this.physicsWorld.addBody(boxBody);
-            this.geometries.push(model);
-            // this.physicsBodies.push(boxBody);
-
+            // Handle animations
             if (gltf.animations.length > 0) {
                 const mixer = new THREE.AnimationMixer(model);
                 gltf.animations.forEach((clip) => {
-                    mixer.clipAction(clip).play();
+                    const action = mixer.clipAction(clip);
+                    action.play();
                 });
                 this.animationMixers.push(mixer);
+            }
+            
+            // Store model reference if specified
+            if (physicsConfig && physicsConfig.type !== 'none') {
+                this.geometries.push(model);
             }
             
             // Call callback if provided
@@ -1523,6 +1536,66 @@ class MainScene extends ThreejsScene {
                 onModelLoaded(model);
             }
         });
+    }
+    
+    /**
+     * Create physics body for a model based on configuration
+     * @param {THREE.Object3D} model - The 3D model
+     * @param {Object} physicsConfig - Physics configuration
+     */
+    createModelPhysics(model, physicsConfig) {
+        const { type, mass = 0, shape = 'box', material = null } = physicsConfig;
+        
+        // Calculate bounding box for physics shape
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        
+        let physicsShape;
+        
+        switch (shape) {
+            case 'cylinder':
+                const radius = Math.max(size.x, size.z) / 2;
+                physicsShape = new CANNON.Cylinder(radius, radius, size.y, 16);
+                break;
+            case 'sphere':
+                const sphereRadius = Math.max(size.x, size.y, size.z) / 2;
+                physicsShape = new CANNON.Sphere(sphereRadius);
+                break;
+            case 'box':
+            default:
+                physicsShape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
+                break;
+        }
+        
+        // Create physics body
+        const physicsBody = new CANNON.Body({
+            mass: mass,
+            position: new CANNON.Vec3(model.position.x, model.position.y, model.position.z),
+            shape: physicsShape,
+            material: material || new CANNON.Material({ friction: 0.6, restitution: 0 })
+        });
+        
+        // Set rotation if needed
+        physicsBody.quaternion.setFromEuler(model.rotation.x, model.rotation.y, model.rotation.z);
+        
+        // Add to physics world
+        this.physicsWorld.addBody(physicsBody);
+        
+        // Store physics body based on type
+        if (type === 'static') {
+            // Static bodies like island, tree - don't move but provide collision
+            if (model.name === 'island' || model.userData.isIsland) {
+                this.groundBody = physicsBody;
+            }
+        } else if (type === 'dynamic') {
+            // Dynamic bodies like cubes - can move and be dragged
+            this.physicsBodies.push(physicsBody);
+            model.userData.physicsBody = physicsBody;
+            model.userData.draggable = true;
+        }
+        
+        console.log(`Created ${type} physics body for model:`, { mass, shape, size });
     }
 
     loadSeagullModels(loader) {
@@ -1548,7 +1621,7 @@ class MainScene extends ThreejsScene {
             (gltf) => {
                 console.log('Seagull 1 GLTF loaded successfully:', gltf);
                 const seagull1 = gltf.scene;
-                seagull1.scale.set(15, 15, 15);
+                seagull1.scale.set(4, 4, 4); // Reduced from 15 to 4 for better proportions
                 seagull1.position.set(seagull1X, this.seagullConfig.spawnHeight, seagull1Z);
                 seagull1.lookAt(0, this.seagullConfig.spawnHeight, 0);
                 seagull1.visible = false; // Initially hidden
@@ -1564,9 +1637,10 @@ class MainScene extends ThreejsScene {
                 this.scene.add(seagull1);
                 this.seagulls.push(seagull1);
                 
-                // Add interaction data for seagull
+                // Add interaction data for seagull - no physics needed
                 seagull1.userData.interactive = true;
                 seagull1.userData.dialogKey = 'seagull_arrival';
+                seagull1.userData.hasPhysics = false; // Seagulls don't need physics
                 
                 // Setup animation mixer for first seagull
                 if (gltf.animations && gltf.animations.length > 0) {
@@ -1841,118 +1915,220 @@ class MainScene extends ThreejsScene {
     }
 
     createIsland() {
-        const textureLoader = new THREE.TextureLoader()
-
-        // Top surface textures (sand)
-        const topColorTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_color_1k.png')
-        const topARMTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_ambient_occlusion_1k.png')
-        const topNormalTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_normal_gl_1k.png')
-        const topDisplacementTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_height_1k.png')
-
-        // Set up top texture properties
-        topColorTexture.colorSpace = THREE.SRGBColorSpace
-        topColorTexture.repeat.set(4, 4)
-        topARMTexture.repeat.set(4, 4)
-        topNormalTexture.repeat.set(4, 4)
-        topDisplacementTexture.repeat.set(4, 4)
-
-        topColorTexture.wrapS = topColorTexture.wrapT = THREE.RepeatWrapping
-        topARMTexture.wrapS = topARMTexture.wrapT = THREE.RepeatWrapping
-        topNormalTexture.wrapS = topNormalTexture.wrapT = THREE.RepeatWrapping
-        topDisplacementTexture.wrapS = topDisplacementTexture.wrapT = THREE.RepeatWrapping
-
-        // Side surface textures (rock/dirt - reusing sand with different color and scaling)
-        const sideColorTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_color_1k.png')
-        const sideARMTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_ambient_occlusion_1k.png')
-        const sideNormalTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_normal_gl_1k.png')
-        const sideDisplacementTexture = textureLoader.load('./textures/main/sand_01_1k/sand_01_height_1k.png')
-
-        // Set up side texture properties with different scaling for variation
-        sideColorTexture.colorSpace = THREE.SRGBColorSpace
-        sideColorTexture.repeat.set(4, 4) // Horizontal repeat for cylinder sides
-        sideARMTexture.repeat.set(4, 4)
-        sideNormalTexture.repeat.set(4, 4)
-        sideDisplacementTexture.repeat.set(4, 4)
-
-        sideColorTexture.wrapS = sideColorTexture.wrapT = THREE.RepeatWrapping
-        sideARMTexture.wrapS = sideARMTexture.wrapT = THREE.RepeatWrapping
-        sideNormalTexture.wrapS = sideNormalTexture.wrapT = THREE.RepeatWrapping
-        sideDisplacementTexture.wrapS = sideDisplacementTexture.wrapT = THREE.RepeatWrapping
-
-        // Create cylinder geometry for the island
-        const islandGeometry = new THREE.CylinderGeometry(
-            200, // radiusTop
-            200, // radiusBottom  
-            20,  // height
-            128,  // radialSegments
-            8,   // heightSegments
-            false // openEnded
-        )
-
-        // Create materials for different surfaces
-        const topMaterial = new THREE.MeshStandardMaterial({
-            map: topColorTexture,
-            aoMap: topARMTexture,
-            roughnessMap: topARMTexture,
-            metalnessMap: topARMTexture,
-            normalMap: topNormalTexture,
-            displacementMap: topDisplacementTexture,
-            displacementScale: 10, // Reduced from 15 to prevent gaps
-            displacementBias: -6, // Adjusted to push displacement inward
-            roughness: 1,
-            metalness: 0
-        })
-
-        const sideMaterial = new THREE.MeshStandardMaterial({
-            map: sideColorTexture,
-            aoMap: sideARMTexture,
-            roughnessMap: sideARMTexture,
-            metalnessMap: sideARMTexture,
-            normalMap: sideNormalTexture,
-            // color: new THREE.Color(0.7, 0.5, 0.4), // Brownish tint for sides
-            displacementMap: sideDisplacementTexture,
-            displacementScale: 8,
-            displacementBias: -4,
-            roughness: 0.9,
-            metalness: 0
-        })
-
-        // Create material array: [side, top, bottom]
-        const islandMaterials = [
-            sideMaterial, // sides
-            topMaterial,  // top
-            sideMaterial  // bottom (same as sides)
-        ]
-
-        let islandPosition = new THREE.Vector3(0, 10, 0)
-
-        // Create the island mesh
-        const island = new THREE.Mesh(islandGeometry, islandMaterials)
-        island.receiveShadow = true
-        island.castShadow = true
-        island.position.copy(islandPosition)
-        this.scene.add(island)
+        // Position for the island - centered at origin, higher up for tree connection
+        const islandPosition = new THREE.Vector3(0, 30, 0);
         
-        // Create matching physics body - cylinder
-        const islandShape = new CANNON.Cylinder(200, 200, 20, 16) // radius1, radius2, height, segments
+        // Create the loader for the island model
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('jsm/');
+        const loader = new GLTFLoader();
+        loader.setDRACOLoader(dracoLoader);
+        
+        // Load the island 3D model with physics
+        this.loadModel(loader, 'models/island.glb', 
+            [islandPosition.x, islandPosition.y, islandPosition.z], // position
+            [150, 150, 150], // scale - bigger
+            [0, 0, 0], // rotation
+            true, // shadows
+            null, // no physics config - handle manually
+            (model) => {
+                console.log('Island model loaded successfully');
+                this.islandModel = model;
+                model.userData.isIsland = true;
+                
+                // Create simple physics body for island
+                const islandRadius = 155; // Approximate radius based on model size
+                const islandShape = new CANNON.Cylinder(islandRadius, islandRadius, 25, 16);
+                const islandBody = new CANNON.Body({
+                    mass: 0, // Static body
+                    shape: islandShape,
+                    position: new CANNON.Vec3(0, 20, 0),
+                    material: new CANNON.Material({ friction: 0.6, restitution: 0 })
+                });
+                
+                this.physicsWorld.addBody(islandBody);
+                this.groundBody = islandBody;
+                
+                // Apply enhanced materials to the model
+                model.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        child.material.needsUpdate = true;
+                    }
+                });
+            }
+        );
+    }
+    
+    /**
+     * Create physics body for the irregular island model
+     * Provides multiple options from simple to complex
+     */
+    createIslandPhysics(islandModel, position) {
+        // Calculate bounding box of the model for physics approximation
+        const box = new THREE.Box3().setFromObject(islandModel);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        
+        console.log('Island model bounds:', { size, center });
+        
+        // Option 1: Simple Cylinder Physics (Recommended for performance)
+        //this.createSimpleIslandPhysics(size, position);
+        
+        // Option 2: Multi-body approximation (uncomment for better accuracy)
+        this.createMultiBodyIslandPhysics(islandModel, position);
+        
+        // Option 3: Heightfield physics (most accurate, but complex)
+        // this.createHeightfieldIslandPhysics(islandModel, position);
+    }
+    
+    /**
+     * Simple physics: Use a cylinder that approximates the island
+     */
+    createSimpleIslandPhysics(modelSize, position) {
+        // Use the model's bounding box to create an appropriate cylinder
+        const radius = Math.max(modelSize.x, modelSize.z) / 2;
+        const height = modelSize.y;
+        
+        console.log(`Creating simple cylinder physics - radius: ${radius}, height: ${height}`);
+        
+        const islandShape = new CANNON.Cylinder(radius, radius, height, 16);
         const islandBody = new CANNON.Body({
             mass: 0, // Static body
             shape: islandShape,
             material: new CANNON.Material()
-        })
-        islandBody.position.copy(islandPosition) // Center the physics body with visual
-    
+        });
+        
+        islandBody.position.copy(position);
+        
         // Add physics material - stable, no bouncing
         const islandPhysicsMaterial = new CANNON.Material({
             friction: 0.6,
             restitution: 0
-        })
-        islandBody.material = islandPhysicsMaterial
+        });
+        islandBody.material = islandPhysicsMaterial;
+        
+        this.physicsWorld.addBody(islandBody);
+        this.groundBody = islandBody;
+    }
     
-        this.physicsWorld.addBody(islandBody)
+    /**
+     * Multi-body physics: Create multiple collision shapes to better match irregular surface
+     */
+    createMultiBodyIslandPhysics(islandModel, position) {
+        console.log('Creating multi-body island physics...');
+        
+        // Sample points around the island to create multiple collision bodies
+        const sampleRadius = 300; // Adjust based on your island size
+        const samples = 24; // Number of sample points around the island
+        const raycastHeight = 80; // Height to start raycasting from
+        
+        const raycaster = new THREE.Raycaster();
+        const tempBodies = [];
+        
+        for (let i = 0; i < samples; i++) {
+            const angle = (i / samples) * Math.PI * 2;
+            const x = Math.cos(angle) * sampleRadius;
+            const z = Math.sin(angle) * sampleRadius;
+            
+            // Create concentric rings of samples
+            for (let ring = 0; ring < 3; ring++) {
+                const ringRadius = (ring + 1) * sampleRadius / 3;
+                const ringX = Math.cos(angle) * ringRadius;
+                const ringZ = Math.sin(angle) * ringRadius;
+                
+                // Raycast down from above to find the island surface
+                const origin = new THREE.Vector3(ringX, position.y + raycastHeight, ringZ);
+                const direction = new THREE.Vector3(0, -1, 0);
+                
+                raycaster.set(origin, direction);
+                const intersects = raycaster.intersectObject(islandModel, true);
+                
+                if (intersects.length > 0) {
+                    const intersectionPoint = intersects[0].point;
+                    
+                    // Create a small physics body at this point
+                    const bodyRadius = 15; // Adjust size as needed
+                    const bodyHeight = 10;
+                    
+                    const shape = new CANNON.Cylinder(bodyRadius, bodyRadius, bodyHeight, 8);
+                    const body = new CANNON.Body({ mass: 0, shape });
+                    body.position.set(intersectionPoint.x, intersectionPoint.y - bodyHeight/2, intersectionPoint.z);
+                    
+                    body.material = new CANNON.Material({
+                        friction: 0.6,
+                        restitution: 0
+                    });
+                    
+                    this.physicsWorld.addBody(body);
+                    tempBodies.push(body);
+                }
+            }
+        }
+        
+        // Store the first body as the main ground reference
+        this.groundBody = tempBodies[0] || this.createFallbackPhysics(position);
+        console.log(`Created ${tempBodies.length} physics bodies for island approximation`);
+    }
     
-        // Store the island body for contact materials
-        this.groundBody = islandBody
+    /**
+     * Heightfield physics: Most accurate but complex approach
+     */
+    createHeightfieldIslandPhysics(islandModel, position) {
+        console.log('Creating heightfield island physics...');
+        
+        // This would require sampling the island surface in a grid
+        // and creating a heightfield - very complex, so we'll use a simpler approach
+        
+        // For now, fall back to multi-body or simple physics
+        this.createMultiBodyIslandPhysics(islandModel, position);
+    }
+    
+    /**
+     * Fallback island creation if 3D model fails to load
+     */
+    createFallbackIsland(position) {
+        console.log('Creating fallback procedural island...');
+        
+        const textureLoader = new THREE.TextureLoader();
+        
+        // Create a simple cylinder as fallback
+        const islandGeometry = new THREE.CylinderGeometry(200, 200, 20, 32, 8, false);
+        
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x8B7355,
+            roughness: 1,
+            metalness: 0
+        });
+        
+        const island = new THREE.Mesh(islandGeometry, material);
+        island.receiveShadow = true;
+        island.castShadow = true;
+        island.position.copy(position);
+        this.scene.add(island);
+        
+        // Create simple physics for fallback
+        this.createFallbackPhysics(position);
+    }
+    
+    /**
+     * Create simple fallback physics
+     */
+    createFallbackPhysics(position) {
+        const islandShape = new CANNON.Cylinder(200, 200, 20, 16);
+        const islandBody = new CANNON.Body({
+            mass: 0,
+            shape: islandShape,
+            material: new CANNON.Material({
+                friction: 0.6,
+                restitution: 0
+            })
+        });
+        
+        islandBody.position.copy(position);
+        this.physicsWorld.addBody(islandBody);
+        this.groundBody = islandBody;
+        
+        return islandBody;
     }
 
     createOcean() {
@@ -2319,7 +2495,38 @@ class MainScene extends ThreejsScene {
     setupDialogTranslations() {
         if (!this.dialogManager) return;
         
-        // Welcome message translations
+        // Welcome message sequence translations
+        this.dialogManager.addTranslation('welcome_1', {
+            'en': 'WHERE AM I...',
+            'pt': 'ONDE ESTOU...',
+            'es': 'DÓNDE ESTOY...',
+            'fr': 'OÙ SUIS-JE...',
+            'de': 'WO BIN ICH...',
+            'ja': 'ここはどこ...',
+            'zh': '我在哪里...'
+        });
+        
+        this.dialogManager.addTranslation('welcome_2', {
+            'en': 'THIS PLACE SEEMS FAMILIAR...',
+            'pt': 'ESTE LUGAR PARECE FAMILIAR...',
+            'es': 'ESTE LUGAR ME RESULTA FAMILIAR...',
+            'fr': 'CET ENDROIT SEMBLE FAMILIER...',
+            'de': 'DIESER ORT SCHEINT VERTRAUT...',
+            'ja': 'この場所は見覚えがある...',
+            'zh': '这个地方看起来很熟悉...'
+        });
+        
+        this.dialogManager.addTranslation('welcome_3', {
+            'en': 'LET ME EXPLORE...',
+            'pt': 'DEIXE-ME EXPLORAR...',
+            'es': 'DÉJAME EXPLORAR...',
+            'fr': 'LAISSEZ-MOI EXPLORER...',
+            'de': 'LASS MICH ERKUNDEN...',
+            'ja': '探索してみよう...',
+            'zh': '让我探索一下...'
+        });
+        
+        // Keep the original welcome translation for backward compatibility
         this.dialogManager.addTranslation('welcome', {
             'en': 'WHERE AM I...',
             'pt': 'ONDE ESTOU...',
@@ -2331,7 +2538,7 @@ class MainScene extends ThreejsScene {
         });
         
         // Example interactions with objects
-        this.dialogManager.addTranslation('palm_tree_intro', {
+        this.dialogManager.addTranslation('tree_intro', {
             'en': 'A lone palm tree stands tall...',
             'pt': 'Uma palmeira solitária se ergue...',
             'es': 'Una palmera solitaria se alza...',

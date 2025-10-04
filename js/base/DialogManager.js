@@ -162,9 +162,76 @@ class DialogManager {
     }
     
     /**
+     * Detect if device is mobile
+     */
+    isMobile() {
+        return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+               window.innerWidth <= 768;
+    }
+    
+    /**
+     * Calculate scaling factor based on screen width and camera distance
+     */
+    calculateScaleFactor() {
+        // Base scaling factor for screen width
+        const screenWidthFactor = Math.min(window.innerWidth / 1920, 1); // Normalize to 1920px width
+        const mobileScaleFactor = this.isMobile() ? 1.2 : 1; // Slightly larger on mobile
+        
+        // Camera distance scaling (if camera is available)
+        let distanceScaleFactor = 1;
+        if (this.camera && this.camera.position) {
+            const cameraDistance = this.camera.position.distanceTo(
+                new THREE.Vector3(0, 0, 0) // Distance to scene center
+            );
+            
+            // Scale based on camera distance (closer = larger dialogs)
+            // Assuming min distance ~700, max distance ~1500
+            const minDistance = 700;
+            const maxDistance = 1500;
+            const normalizedDistance = Math.max(0, Math.min(1, 
+                (cameraDistance - minDistance) / (maxDistance - minDistance)
+            ));
+            
+            // Inverse relationship: closer camera = larger dialogs
+            distanceScaleFactor = 1.5 - (normalizedDistance * 0.7); // Range: 0.8 to 1.5
+        }
+        
+        return screenWidthFactor * mobileScaleFactor * distanceScaleFactor;
+    }
+    
+    /**
+     * Update CSS custom properties for dynamic scaling
+     */
+    updateDialogScale() {
+        const scaleFactor = this.calculateScaleFactor();
+        document.documentElement.style.setProperty('--dialog-scale-factor', scaleFactor.toString());
+        
+        // Update font size based on scale
+        const baseFontSize = 12;
+        const scaledFontSize = Math.max(8, Math.min(16, baseFontSize * scaleFactor));
+        document.documentElement.style.setProperty('--dialog-font-size', `${scaledFontSize}px`);
+        
+        // Update padding based on scale
+        const basePadding = 50;
+        const scaledPadding = basePadding * scaleFactor;
+        document.documentElement.style.setProperty('--dialog-padding', `${scaledPadding}px`);
+        
+        // Update minimum width based on scale
+        const baseMinWidth = 250;
+        const scaledMinWidth = baseMinWidth * scaleFactor;
+        document.documentElement.style.setProperty('--dialog-min-width', `${scaledMinWidth}px`);
+    }
+    
+    /**
      * Initialize CSS styles for dialog boxes
      */
     initializeStyles() {
+        // Set initial CSS custom properties
+        document.documentElement.style.setProperty('--dialog-scale-factor', '1');
+        document.documentElement.style.setProperty('--dialog-font-size', '12px');
+        document.documentElement.style.setProperty('--dialog-padding', '50px');
+        document.documentElement.style.setProperty('--dialog-min-width', '250px');
+        
         const styleSheet = document.createElement('style');
         styleSheet.textContent = `
             .dialog-manager-container {
@@ -172,6 +239,9 @@ class DialogManager {
                 pointer-events: none;
                 z-index: 1000;
                 transition: all 0.3s ease;
+                transition: all 0.3s ease;
+                transition: all 0.3s ease;
+                transform-origin: center;
             }
             
             .dialog-box {
@@ -179,23 +249,36 @@ class DialogManager {
                 align-items: center;
                 justify-content: center;
                 font-family: 'Press Start 2P', monospace !important;
-                font-size: 12px;
+                font-size: var(--dialog-font-size);
                 letter-spacing: 1px;
                 color: #ffffff;
                 text-align: center;
-                padding: 25px 35px;
-                background: linear-gradient(145deg, #2a2a2aaf, #1a1a1aaf);
+                padding: var(--dialog-padding) calc(var(--dialog-padding) * 1.4);
+                background: linear-gradient(145deg, #2a2a2aff, #1a1a1aff);
                 border: 3px solid #ffffff;
-                box-shadow: 0 0 14px #0000008f;
+                box-shadow: 0 0 calc(14px * var(--dialog-scale-factor)) #0000008f;
                 cursor: pointer;
                 user-select: none;
-                min-width: 250px;
-                min-height: 25px;
+                min-width: var(--dialog-min-width);
+                max-width: calc(90vw);
+                min-height: calc(25px * var(--dialog-scale-factor));
                 position: relative;
-                transition: all 0.5s ease;
+                transition: opacity 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), 
+                           transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
                 pointer-events: auto;
                 opacity: 0;
                 transform: scale(0);
+                transform-origin: center center;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            
+            @media (max-width: 768px) {
+                .dialog-box {
+                    max-width: 85vw;
+                    font-size: calc(var(--dialog-font-size) * 1.1);
+                    line-height: 1.3;
+                }
             }
             
             .dialog-box.show {
@@ -204,10 +287,11 @@ class DialogManager {
             }
             
             .dialog-box.fade-out {
-                opacity: 0;
-                transform: scale(0);
-                pointer-events: none;
-                transition: all 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53);
+                opacity: 0 !important;
+                transform: scale(0) !important;
+                pointer-events: none !important;
+                transition: opacity 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53),
+                           transform 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) !important;
             }
             
             .dialog-triangle {
@@ -227,7 +311,7 @@ class DialogManager {
                 height: 0;
                 border-left: 10px solid transparent;
                 border-right: 10px solid transparent;
-                border-top: 10px solid #2a2a2a;
+                border-top: 10px solid #2a2a2aff;
             }
             
             .dialog-triangle.bottom {
@@ -329,6 +413,7 @@ class DialogManager {
         const {
             textKey,
             text,
+            textSequence = null, // New: array of texts to cycle through
             position = this.defaultPosition,
             followObject = null,
             followOffset = { x: 0, y: -100, z: 0 },
@@ -337,13 +422,29 @@ class DialogManager {
             autoCloseDelay = 5000,
             onComplete = null,
             onClose = null,
+            onSequenceComplete = null, // New: called when all sequence texts are shown
             typewriterSpeed = 50
         } = options;
         
         const dialogId = `dialog-${this.dialogCounter++}`;
         
-        // Get text content
-        const content = text || this.getText(textKey) || 'Dialog text';
+        // Update scaling before creating dialog
+        this.updateDialogScale();
+        
+        // Handle text content - prioritize sequence over single text
+        let content;
+        let currentSequenceIndex = 0;
+        
+        if (textSequence && Array.isArray(textSequence) && textSequence.length > 0) {
+            // Use first item in sequence
+            if (typeof textSequence[0] === 'object') {
+                content = textSequence[0].text || this.getText(textSequence[0].textKey) || 'Dialog text';
+            } else {
+                content = textSequence[0];
+            }
+        } else {
+            content = text || this.getText(textKey) || 'Dialog text';
+        }
         
         // Create dialog container
         const container = document.createElement('div');
@@ -381,7 +482,7 @@ class DialogManager {
             this.setStaticPosition(container, position);
         }
         
-        // Store dialog reference
+        // Store dialog reference with sequence data
         this.activeDialogs.set(dialogId, {
             container,
             dialogBox,
@@ -390,30 +491,125 @@ class DialogManager {
             followObject,
             followOffset,
             onComplete,
-            onClose
+            onClose,
+            // Sequence-related properties
+            textSequence: textSequence,
+            currentSequenceIndex: currentSequenceIndex,
+            onSequenceComplete: onSequenceComplete,
+            typewriterSpeed: typewriterSpeed,
+            originalOptions: options // Store original options for sequence progression
         });
         
-        // Show dialog with animation
-        requestAnimationFrame(() => {
+        // Show dialog with animation - ensure DOM is fully rendered first
+        console.log('Dialog created, triggering animation for:', dialogId);
+        setTimeout(() => {
+            console.log('Adding show class to dialog:', dialogId);
             dialogBox.classList.add('show');
-        });
+        }, 50); // Small delay to ensure DOM is rendered
         
         // Initialize typewriter with sound effects
-        this.initializeTypewriter(dialogId, content, typewriterSpeed, onComplete);
+        this.initializeTypewriter(dialogId, content, typewriterSpeed, (dialogId) => {
+            // After typewriter completes, set up click handler for next text or completion
+            this.setupDialogClickHandler(dialogId);
+            
+            // Call original onComplete if provided
+            if (onComplete) onComplete(dialogId);
+        });
         
-        // Auto close if specified
-        if (autoClose) {
+        // Auto close if specified (but not if we have a sequence)
+        if (autoClose && !textSequence) {
             setTimeout(() => {
                 this.closeDialog(dialogId);
             }, autoCloseDelay);
         }
         
-        // Add click to close functionality
-        dialogBox.addEventListener('click', () => {
-            this.closeDialog(dialogId);
+        return dialogId;
+    }
+    
+    /**
+     * Set up click handler for dialog - handles both single dialogs and sequences
+     */
+    setupDialogClickHandler(dialogId) {
+        const dialog = this.activeDialogs.get(dialogId);
+        if (!dialog) return;
+        
+        // Remove any existing click listeners
+        const newDialogBox = dialog.dialogBox.cloneNode(true);
+        dialog.dialogBox.parentNode.replaceChild(newDialogBox, dialog.dialogBox);
+        dialog.dialogBox = newDialogBox;
+        
+        // CRITICAL: Update textContainer reference after DOM replacement
+        dialog.textContainer = newDialogBox.querySelector('.dialog-text');
+        
+        newDialogBox.addEventListener('click', () => {
+            this.handleDialogClick(dialogId);
         });
         
-        return dialogId;
+        // Make it visually clickable
+        newDialogBox.style.cursor = 'pointer';
+    }
+    
+    /**
+     * Handle dialog click - advance sequence or close dialog
+     */
+    handleDialogClick(dialogId) {
+        const dialog = this.activeDialogs.get(dialogId);
+        if (!dialog) return;
+        
+        // Check if this dialog has a link URL (from cube interaction)
+        if (dialog.linkUrl) {
+            window.open(dialog.linkUrl, '_blank');
+            this.closeDialog(dialogId);
+            return;
+        }
+        
+        // If dialog has a text sequence, advance to next text
+        if (dialog.textSequence && Array.isArray(dialog.textSequence)) {
+            const nextIndex = dialog.currentSequenceIndex + 1;
+            
+            if (nextIndex < dialog.textSequence.length) {
+                // Advance to next text in sequence
+                dialog.currentSequenceIndex = nextIndex;
+                
+                let nextContent;
+                const nextItem = dialog.textSequence[nextIndex];
+                
+                if (typeof nextItem === 'object') {
+                    nextContent = nextItem.text || this.getText(nextItem.textKey) || 'Dialog text';
+                } else {
+                    nextContent = nextItem;
+                }
+                
+                console.log(`Advancing to text ${nextIndex + 1}/${dialog.textSequence.length}: "${nextContent}"`);
+                
+                // Stop any existing typewriter animation
+                if (dialog.typewriter) {
+                    dialog.typewriter.stop();
+                }
+                
+                // Clear current text and start typing next text
+                if (dialog.textContainer) {
+                    dialog.textContainer.innerHTML = '<span class="Typewriter__cursor">⯆</span>';
+                    this.typeWithSound(dialog.textContainer, nextContent, dialog.typewriterSpeed, () => {
+                        this.setupDialogClickHandler(dialogId); // Reset click handler
+                    });
+                } else {
+                    console.error('textContainer not found for dialog:', dialogId);
+                }
+                
+            } else {
+                // Sequence is complete
+                console.log('Text sequence completed');
+                if (dialog.onSequenceComplete) {
+                    dialog.onSequenceComplete(dialogId);
+                } else {
+                    this.closeDialog(dialogId);
+                }
+            }
+        } else {
+            // Single text dialog - just close
+            this.closeDialog(dialogId);
+        }
     }
     
     /**
@@ -618,6 +814,9 @@ class DialogManager {
      * Handle window resize
      */
     onWindowResize() {
+        // Update dialog scaling for new screen dimensions
+        this.updateDialogScale();
+        
         // Update following dialogs positions
         this.updateFollowingDialogs();
     }
