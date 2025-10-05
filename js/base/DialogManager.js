@@ -67,7 +67,7 @@ class DialogManager {
         
         soundPaths.forEach((path, index) => {
             const audio = new Audio(path);
-            audio.volume = 0.3;
+            // audio.volume = 0.8;
             audio.preload = 'auto';
             
             // Fallback - if files don't exist, we'll create a simple beep sound
@@ -104,8 +104,8 @@ class DialogManager {
                     oscillator.frequency.setValueAtTime(frequencies[index] || 800, audioCtx.currentTime);
                     oscillator.type = 'square';
                     
-                    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.05, audioCtx.currentTime + 0.1);
                     
                     oscillator.start(audioCtx.currentTime);
                     oscillator.stop(audioCtx.currentTime + 0.1);
@@ -381,29 +381,15 @@ class DialogManager {
      * Create a new dialog box
      */
     showDialog(options = {}) {
-        // Prevent rapid-fire dialog creation during transitions
-        if (this.isTransitioning) {
-            console.log('Dialog creation blocked - transition in progress');
-            return null;
+        // Immediately destroy any existing dialogs and their animations
+        if (this.getActiveDialogCount() > 0) {
+            console.log('Immediately destroying existing dialogs for new one');
+            this.destroyAllDialogs();
         }
         
-        // Close any existing dialogs before showing a new one
-        if (this.getActiveDialogCount() > 0) {
-            console.log('Closing existing dialogs before showing new one');
-            this.isTransitioning = true;
-            this.closeAllDialogs(true); // Close immediately for smooth transition
-            
-            // Wait a brief moment for any cleanup, then show the new dialog
-            setTimeout(() => {
-                this.isTransitioning = false;
-                this._createDialog(options);
-            }, 100);
-            
-            return `dialog-${this.dialogCounter}`; // Return future dialog ID
-        } else {
-            // No existing dialogs, show immediately
-            return this._createDialog(options);
-        }
+        // Reset transition flag and create new dialog immediately
+        this.isTransitioning = false;
+        return this._createDialog(options);
     }
     
     /**
@@ -423,6 +409,7 @@ class DialogManager {
             onComplete = null,
             onClose = null,
             onSequenceComplete = null, // New: called when all sequence texts are shown
+            onFirstClick = null, // New: called on first click
             typewriterSpeed = 50
         } = options;
         
@@ -484,10 +471,12 @@ class DialogManager {
         
         // Store dialog reference with sequence data
         this.activeDialogs.set(dialogId, {
+            dialogId: dialogId, // Store ID for self-reference
             container,
             dialogBox,
             textContainer,
             typewriter: null,
+            typingTimeoutId: null, // Track typing animation timeout
             followObject,
             followOffset,
             onComplete,
@@ -496,6 +485,8 @@ class DialogManager {
             textSequence: textSequence,
             currentSequenceIndex: currentSequenceIndex,
             onSequenceComplete: onSequenceComplete,
+            onFirstClick: onFirstClick,
+            firstClickFired: false, // Track if first click has happened
             typewriterSpeed: typewriterSpeed,
             originalOptions: options // Store original options for sequence progression
         });
@@ -556,6 +547,13 @@ class DialogManager {
         const dialog = this.activeDialogs.get(dialogId);
         if (!dialog) return;
         
+        // Call onFirstClick callback if this is the first click
+        if (!dialog.firstClickFired && dialog.onFirstClick) {
+            console.log('Firing onFirstClick callback for dialog:', dialogId);
+            dialog.onFirstClick(dialogId);
+            dialog.firstClickFired = true;
+        }
+        
         // Check if this dialog has a link URL (from cube interaction)
         if (dialog.linkUrl) {
             window.open(dialog.linkUrl, '_blank');
@@ -582,14 +580,26 @@ class DialogManager {
                 
                 console.log(`Advancing to text ${nextIndex + 1}/${dialog.textSequence.length}: "${nextContent}"`);
                 
-                // Stop any existing typewriter animation
-                if (dialog.typewriter) {
-                    dialog.typewriter.stop();
+                // CRITICAL: Stop ALL ongoing animations for this dialog before starting new text
+                if (dialog.typewriter && dialog.typewriter.stop) {
+                    try {
+                        dialog.typewriter.stop();
+                    } catch (error) {
+                        console.warn('Error stopping typewriter during sequence advance:', error);
+                    }
+                }
+                
+                // Clear any ongoing typing timeout from previous text
+                if (dialog.typingTimeoutId) {
+                    clearTimeout(dialog.typingTimeoutId);
+                    dialog.typingTimeoutId = null;
+                    console.log('Cleared previous text typing timeout');
                 }
                 
                 // Clear current text and start typing next text
                 if (dialog.textContainer) {
-                    dialog.textContainer.innerHTML = '<span class="Typewriter__cursor">⯆</span>';
+                    const cursorChar = this.getCursorCharacter();
+                    dialog.textContainer.innerHTML = `<span class="Typewriter__cursor">${cursorChar}</span>`;
                     this.typeWithSound(dialog.textContainer, nextContent, dialog.typewriterSpeed, () => {
                         this.setupDialogClickHandler(dialogId); // Reset click handler
                     });
@@ -613,16 +623,53 @@ class DialogManager {
     }
     
     /**
+     * Get appropriate cursor character with fallback for mobile compatibility
+     */
+    getCursorCharacter() {
+        // Test if the device supports the fancy cursor character
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        context.font = '12px monospace';
+        
+        // Measure the fancy character
+        const fancyWidth = context.measureText('⯆').width;
+        const testWidth = context.measureText('?').width; // Question mark as reference
+        
+        // If the character renders as the same width as a question mark, it's likely not supported
+        if (Math.abs(fancyWidth - testWidth) < 1) {
+            // Fallback characters in order of preference
+            const fallbacks = ['▶', '►', '>', '|'];
+            
+            for (const char of fallbacks) {
+                const charWidth = context.measureText(char).width;
+                if (Math.abs(charWidth - testWidth) > 1) {
+                    console.log(`Using cursor fallback: ${char}`);
+                    return char;
+                }
+            }
+            
+            // Ultimate fallback
+            console.log('Using ultimate cursor fallback: |');
+            return '|';
+        }
+        
+        console.log('Using fancy cursor: ⯆');
+        return '⯆';
+    }
+    
+    /**
      * Initialize typewriter effect with sound
      */
     initializeTypewriter(dialogId, text, speed, onComplete) {
         const dialog = this.activeDialogs.get(dialogId);
         if (!dialog) return;
         
+        const cursorChar = this.getCursorCharacter();
+        
         const typewriter = new Typewriter(dialog.textContainer, {
             loop: false,
             delay: speed,
-            cursor: '⯆',
+            cursor: cursorChar,
             deleteSpeed: 30,
         });
         
@@ -649,24 +696,50 @@ class DialogManager {
      * Type text character by character with sound effects
      */
     typeWithSound(container, text, delay, onComplete) {
+        // Find the dialog that owns this container to store timeout ID
+        let ownerDialog = null;
+        this.activeDialogs.forEach((dialog) => {
+            if (dialog.textContainer === container) {
+                ownerDialog = dialog;
+            }
+        });
+        
         let index = 0;
         const typeChar = () => {
+            // Check if dialog still exists (not destroyed)
+            if (!ownerDialog || !this.activeDialogs.has(ownerDialog.dialogId)) {
+                console.log('Dialog destroyed during typing, stopping animation');
+                return;
+            }
+            
             if (index < text.length) {
                 // Clear container and add text up to current index
-                container.innerHTML = text.substring(0, index + 1) + '<span class="Typewriter__cursor">⯆</span>';
+                const cursorChar = this.getCursorCharacter();
+                container.innerHTML = text.substring(0, index + 1) + `<span class="Typewriter__cursor">${cursorChar}</span>`;
                 this.playTypingSound();
                 index++;
-                setTimeout(typeChar, delay);
+                
+                // Store timeout ID for potential cancellation
+                if (ownerDialog) {
+                    ownerDialog.typingTimeoutId = setTimeout(typeChar, delay);
+                }
             } else {
                 // Keep cursor visible after typing is complete
-                container.innerHTML = text + '<span class="Typewriter__cursor">⯆</span>';
+                const cursorChar = this.getCursorCharacter();
+                container.innerHTML = text + `<span class="Typewriter__cursor">${cursorChar}</span>`;
+                if (ownerDialog) {
+                    ownerDialog.typingTimeoutId = null; // Clear timeout ID
+                }
                 if (onComplete) onComplete();
             }
         };
         
         // Start with empty content and cursor
-        container.innerHTML = '<span class="Typewriter__cursor">⯆</span>';
-        setTimeout(typeChar, delay);
+        const cursorChar = this.getCursorCharacter();
+        container.innerHTML = `<span class="Typewriter__cursor">${cursorChar}</span>`;
+        if (ownerDialog) {
+            ownerDialog.typingTimeoutId = setTimeout(typeChar, delay);
+        }
     }
     
     /**
@@ -758,6 +831,21 @@ class DialogManager {
         const dialog = this.activeDialogs.get(dialogId);
         if (!dialog) return;
         
+        // Stop any ongoing animations
+        if (dialog.typewriter && dialog.typewriter.stop) {
+            try {
+                dialog.typewriter.stop();
+            } catch (error) {
+                console.warn('Error stopping typewriter in closeDialog:', error);
+            }
+        }
+        
+        // Clear typing timeout
+        if (dialog.typingTimeoutId) {
+            clearTimeout(dialog.typingTimeoutId);
+            dialog.typingTimeoutId = null;
+        }
+        
         // Call onClose callback if provided
         if (dialog.onClose) {
             dialog.onClose(dialogId);
@@ -793,6 +881,44 @@ class DialogManager {
     closeAllDialogs(immediate = false) {
         const dialogIds = Array.from(this.activeDialogs.keys());
         dialogIds.forEach(id => this.closeDialog(id, immediate));
+    }
+    
+    /**
+     * Immediately destroy all dialogs and their animations (for rapid dialog switching)
+     */
+    destroyAllDialogs() {
+        console.log(`Destroying ${this.activeDialogs.size} active dialogs immediately`);
+        
+        this.activeDialogs.forEach((dialog, dialogId) => {
+            // Stop any typewriter animations
+            if (dialog.typewriter && dialog.typewriter.stop) {
+                try {
+                    dialog.typewriter.stop();
+                } catch (error) {
+                    console.warn('Error stopping typewriter:', error);
+                }
+            }
+            
+            // Clear any ongoing typing animations by clearing timeouts
+            // This stops the typeWithSound method's setTimeout chain
+            if (dialog.typingTimeoutId) {
+                clearTimeout(dialog.typingTimeoutId);
+            }
+            
+            // Remove DOM element immediately
+            if (dialog.container && dialog.container.parentNode) {
+                dialog.container.parentNode.removeChild(dialog.container);
+            }
+        });
+        
+        // Clear all maps
+        this.activeDialogs.clear();
+        this.followingObjects.clear();
+        
+        // Reset transition flag
+        this.isTransitioning = false;
+        
+        console.log('All dialogs destroyed immediately');
     }
     
     /**

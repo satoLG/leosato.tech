@@ -65,7 +65,8 @@ class MainScene extends ThreejsScene {
         // Audio setup
         this.seabreezeAudio = null;
         this.seagullAudio = null;
-        this.flyawayAudio = null;
+        this.beachAudio = null; // Renamed from flyawayAudio
+        this.welcomeAudio = null; // New welcome music
         this.audioLoaded = false;
         this.loadAudio();
 
@@ -105,7 +106,7 @@ class MainScene extends ThreejsScene {
 
     loadAudio() {
         // Seabreeze ambient audio
-        this.seabreezeAudio = new Audio('sounds/background/seabreeze_high.wav');
+        this.seabreezeAudio = new Audio('sounds/background/seabreeze.wav');
         this.seabreezeAudio.loop = true;
         // this.seabreezeAudio.volume = 0.8;
         
@@ -114,12 +115,17 @@ class MainScene extends ThreejsScene {
         // this.seagullAudio.volume = 0.3;
         
         // Background music
-        this.flyawayAudio = new Audio('sounds/music/flyaway_low.wav');
-        this.flyawayAudio.loop = true;
-        // this.flyawayAudio.volume = 0.2;
+        this.beachAudio = new Audio('sounds/music/beach.mp3');
+        this.beachAudio.loop = true;
+        // this.beachAudio.volume = 0.2;
+        
+        // Welcome music
+        this.welcomeAudio = new Audio('sounds/music/welcome.mp3');
+        this.welcomeAudio.loop = false; // Play once
+        // this.welcomeAudio.volume = 0.3;
         
         let audioLoadedCount = 0;
-        const totalAudioFiles = 3;
+        const totalAudioFiles = 4; // Updated count
         
         const checkAllAudioLoaded = () => {
             audioLoadedCount++;
@@ -131,7 +137,8 @@ class MainScene extends ThreejsScene {
         
         this.seabreezeAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
         this.seagullAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
-        this.flyawayAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
+        this.beachAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
+        this.welcomeAudio.addEventListener('canplaythrough', checkAllAudioLoaded);
         
         this.seabreezeAudio.addEventListener('error', (e) => {
             console.error('Error loading seabreeze audio:', e);
@@ -139,14 +146,18 @@ class MainScene extends ThreejsScene {
         this.seagullAudio.addEventListener('error', (e) => {
             console.error('Error loading seagull audio:', e);
         });
-        this.flyawayAudio.addEventListener('error', (e) => {
-            console.error('Error loading flyaway audio:', e);
+        this.beachAudio.addEventListener('error', (e) => {
+            console.error('Error loading beach audio:', e);
+        });
+        this.welcomeAudio.addEventListener('error', (e) => {
+            console.error('Error loading welcome audio:', e);
         });
         
         // Preload all audio
         this.seabreezeAudio.load();
         this.seagullAudio.load();
-        this.flyawayAudio.load();
+        this.beachAudio.load();
+        this.welcomeAudio.load();
     }
 
     playSeabreezeAudio() {
@@ -403,8 +414,10 @@ class MainScene extends ThreejsScene {
         const loader = new GLTFLoader(loadingManager);
         loader.setDRACOLoader( dracoLoader );
 
+        
+
         //Load the tree model - positioned to come out of island top
-        this.loadModel(loader, 'models/tree.glb', [0, 25, 0], [25, 25, 25], [0, 0, 0], true, 
+        this.loadModel(loader, 'models/tree.glb', [0, 35, 0], [25, 25, 25], [0, 0, 0], true, 
             null, // no physics config - tree doesn't need collision
             (model) => {
                 // Store reference to palm tree for dialog interaction
@@ -448,6 +461,99 @@ class MainScene extends ThreejsScene {
                 // Add click interaction for rock
                 model.userData.interactive = true;
                 model.userData.dialogKey = 'rock_intro';
+            }
+        );
+
+        // Load wooden boat - floating on ocean with physics
+        this.loadModel(loader, 'models/boat.glb', [180, 50, 180], [0.3, 0.3, 0.3], [0, Math.PI / 4, 0], true,
+            {
+                type: 'dynamic', // Dynamic physics like cubes
+                mass: 5, // Give it some mass but heavier than cubes
+                shape: 'box',
+                sizeMultiplier: 0.5, // Make physics body 50% smaller than visual model
+                material: new CANNON.Material({ friction: 0.8, restitution: 0.2 })
+            },
+            (model) => {
+                // Store reference to boat for dialog interaction
+                this.boat = model;
+                
+                // Add click interaction for boat
+                model.userData.interactive = true;
+                model.userData.dialogKey = 'boat_intro';
+                // model.userData.draggable = true; // Disabled dragging - boat is dialog-only now
+                model.userData.name = 'Wooden Boat';
+                
+                // Add to geometries array for interaction and physics updates
+                this.geometries.push(model);
+                
+                console.log('Wooden boat loaded with dialog interaction only (dragging disabled)');
+            }
+        );
+
+        // Load wooden crate - same size as cubes, with physics
+        this.loadModel(loader, 'models/wooden_crate.glb', [60, 50, 30], [cubeSize * 0.5, cubeSize * 0.5, cubeSize * 0.5], [0, Math.PI / 6, 0], true,
+            {
+                type: 'dynamic',
+                mass: 1,
+                shape: 'box',
+                sizeMultiplier: 1.0, // Use full size for physics body
+                material: new CANNON.Material({ friction: 0.6, restitution: 0.2 })
+            },
+            (model) => {
+                // Store reference to crate
+                this.crate = model;
+                
+                // Add to geometries array for interaction and physics updates
+                this.geometries.push(model);
+                
+                // Add interaction data like cubes - both draggable AND shows dialog on double-click
+                model.userData.interactive = true;
+                model.userData.draggable = true;
+                model.userData.dialogKey = 'crate_interaction';
+                model.userData.name = 'Wooden Crate';
+                
+                console.log('Wooden crate loaded with draggable physics like cubes');
+            }
+        );
+
+        this.loadModel(loader, 'models/wooden_crate.glb', [60, 50, 160], [cubeSize * 0.5, cubeSize * 0.5, cubeSize * 0.5], [0, Math.PI / 6, 0], true,
+            {
+                type: 'dynamic',
+                mass: 1,
+                shape: 'box',
+                sizeMultiplier: 1.0, // Use full size for physics body
+                material: new CANNON.Material({ friction: 0.6, restitution: 0.2 })
+            },
+            (model) => {
+                // Store reference to crate
+                this.crate = model;
+                
+                // Add to geometries array for interaction and physics updates
+                this.geometries.push(model);
+                
+                // Add interaction data like cubes - both draggable AND shows dialog on double-click
+                model.userData.interactive = true;
+                model.userData.draggable = true;
+                model.userData.dialogKey = 'crate_interaction';
+                model.userData.name = 'Wooden Crate';
+                
+                console.log('Wooden crate loaded with draggable physics like cubes');
+            }
+        );
+
+        // Load me.glb character model - fixed position next to tree
+        this.loadModel(loader, 'models/me.glb', [20, 45, 8], [1.5, 1.5, 1.5], [0, -Math.PI / 4, 0], true,
+            null, // No physics - fixed position like island
+            (model) => {
+                // Store reference to character model
+                this.characterModel = model;
+                
+                // Add click interaction for character - will show intro sequence first time
+                model.userData.interactive = true;
+                model.userData.dialogKey = 'leo_intro_sequence';
+                model.userData.hasShownIntro = false; // Track if intro sequence was shown
+                
+                console.log('Character model (me.glb) loaded next to tree with intro sequence');
             }
         );
 
@@ -554,18 +660,21 @@ class MainScene extends ThreejsScene {
                     this.lastClickTime = now;
                     // Continue to dragging logic below
                 }
+                
+                // Only continue to dragging logic if object is actually draggable
+                // Prevent OrbitControls from handling this event
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Disable OrbitControls when dragging objects
+                this.controls.enabled = false;
+            } else {
+                // Object is not draggable, don't interfere with OrbitControls
+                return;
             }
             
-            // Original cube interaction logic (dragging)
-            // Prevent OrbitControls from handling this event
-            event.preventDefault();
-            event.stopPropagation();
-            
-            // Disable OrbitControls when dragging objects
-            this.controls.enabled = false;
-            
-            // Select the first intersected object
-            this.selectedCube = intersects[0].object;
+            // Select the parent model instead of child mesh for boats and other models
+            this.selectedCube = parentModel;
 
             // Create a plane perpendicular to the camera's viewing direction
             // This allows movement in 3D space relative to the camera view
@@ -581,13 +690,23 @@ class MainScene extends ThreejsScene {
             this.offset.copy(intersectionPoint).sub(this.selectedCube?.position);
     
             // Disable physics for the selected object
-            const index = this.geometries.indexOf(this.selectedCube);
-            if (index !== -1) {
-                const body = this.physicsBodies[index];
-                body.type = CANNON.Body.KINEMATIC; // Make the body kinematic
-                body.velocity.set(0, 0, 0); // Stop any linear motion
-                body.angularVelocity.set(0, 0, 0); // Stop any rotational motion
-                body.wakeUp(); // Ensure the body is awake during manipulation
+            if (this.selectedCube.userData && this.selectedCube.userData.physicsBody) {
+                // For models with userData.physicsBody (like boats)
+                const body = this.selectedCube.userData.physicsBody;
+                body.type = CANNON.Body.KINEMATIC; // Kinematic bodies are not affected by forces
+                body.velocity.set(0, 0, 0); // Clear velocities
+                body.angularVelocity.set(0, 0, 0);
+                body.wakeUp();
+            } else {
+                // Fallback for cubes
+                const index = this.geometries.indexOf(this.selectedCube);
+                if (index !== -1 && this.physicsBodies[index]) {
+                    const body = this.physicsBodies[index];
+                    body.type = CANNON.Body.KINEMATIC;
+                    body.velocity.set(0, 0, 0);
+                    body.angularVelocity.set(0, 0, 0);
+                    body.wakeUp();
+                }
             }
 
             console.log('Selected Cube:', this.selectedCube);
@@ -637,10 +756,18 @@ class MainScene extends ThreejsScene {
             // Update the position of the selected object
             this.selectedCube.position.copy(intersectionPoint.sub(this.offset));
     
-            // Update the physics body position
-            const index = this.geometries.indexOf(this.selectedCube);
-            if (index !== -1) {
-                this.physicsBodies[index].position.copy(this.selectedCube?.position);
+            // Update the physics body position - use userData.physicsBody if available
+            if (this.selectedCube.userData && this.selectedCube.userData.physicsBody) {
+                const offset = this.selectedCube.userData.physicsOffset || new THREE.Vector3(0, 0, 0);
+                // Add offset to model position to get physics body position
+                const physicsPosition = this.selectedCube.position.clone().add(offset);
+                this.selectedCube.userData.physicsBody.position.copy(physicsPosition);
+            } else {
+                // Fallback to index-based lookup for cubes
+                const index = this.geometries.indexOf(this.selectedCube);
+                if (index !== -1 && this.physicsBodies[index]) {
+                    this.physicsBodies[index].position.copy(this.selectedCube.position);
+                }
             }
         }
     }
@@ -651,20 +778,35 @@ class MainScene extends ThreejsScene {
             this.controls.enabled = true;
             
             // Reset the physics body to dynamic
-            const index = this.geometries.indexOf(this.selectedCube);
-            if (index !== -1) {
-                const body = this.physicsBodies[index];
-                body.type = CANNON.Body.DYNAMIC; // Make the body dynamic again
+            if (this.selectedCube.userData && this.selectedCube.userData.physicsBody) {
+                // Use userData.physicsBody for models like boats
+                const body = this.selectedCube.userData.physicsBody;
+                body.type = CANNON.Body.DYNAMIC;
                 
-                // Sync the physics body position with the visual object
-                body.position.copy(this.selectedCube.position);
+                // Sync the physics body position with the visual object - account for physics offset
+                const offset = this.selectedCube.userData.physicsOffset || new THREE.Vector3(0, 0, 0);
+                const physicsPosition = this.selectedCube.position.clone().add(offset);
+                body.position.copy(physicsPosition);
                 body.quaternion.copy(this.selectedCube.quaternion);
                 
                 // Apply a small impulse to wake up the physics body
-                const impulse = new CANNON.Vec3(0, 1, 0); // Small upward impulse
+                const impulse = new CANNON.Vec3(0, 1, 0);
                 body.applyImpulse(impulse);
-                
-                body.wakeUp(); // Ensure the body is awake
+                body.wakeUp();
+            } else {
+                // Fallback to index-based lookup for cubes
+                const index = this.geometries.indexOf(this.selectedCube);
+                if (index !== -1 && this.physicsBodies[index]) {
+                    const body = this.physicsBodies[index];
+                    body.type = CANNON.Body.DYNAMIC;
+                    
+                    body.position.copy(this.selectedCube.position);
+                    body.quaternion.copy(this.selectedCube.quaternion);
+                    
+                    const impulse = new CANNON.Vec3(0, 1, 0);
+                    body.applyImpulse(impulse);
+                    body.wakeUp();
+                }
             }
             
             // Clear the selected cube
@@ -753,6 +895,42 @@ class MainScene extends ThreejsScene {
             return;
         }
         
+        // Special handling for Leo's intro sequence
+        if (dialogKey === 'leo_intro_sequence') {
+            if (!model.userData.hasShownIntro) {
+                // Show intro sequence first time
+                model.userData.hasShownIntro = true;
+                const leoIntroId = this.dialogManager.showDialog({
+                    textSequence: [
+                        { textKey: 'leo_intro_1' },
+                        { textKey: 'leo_intro_2' },
+                        { textKey: 'leo_intro_3' }
+                    ],
+                    followObject: model,
+                    followOffset: { x: 0, y: 150, z: 0 },
+                    trianglePosition: 'bottom',
+                    typewriterSpeed: 45,
+                    onSequenceComplete: (dialogId) => {
+                        console.log('Leo intro sequence completed, starting beach music');
+                        // Start beach music after intro sequence
+                        this.playBackgroundMusic();
+                    }
+                });
+            } else {
+                // Show regular character dialog after intro
+                const characterDialogId = this.dialogManager.showDialog({
+                    textKey: 'character_intro',
+                    followObject: model,
+                    followOffset: { x: 0, y: 150, z: 0 },
+                    trianglePosition: 'bottom',
+                    autoClose: true,
+                    autoCloseDelay: 5000,
+                    typewriterSpeed: 35
+                });
+            }
+            return;
+        }
+        
         // Special handling for cubes - they should open links and show dialog
         if (model.userData.url && model.userData.name) {
             const customText = `${model.userData.name}`;
@@ -764,7 +942,7 @@ class MainScene extends ThreejsScene {
                 trianglePosition: 'bottom',
                 autoClose: true,
                 autoCloseDelay: 4000,
-                typewriterSpeed: 50,
+                typewriterSpeed: 45,
                 onComplete: (dialogId) => {
                     // Store the URL in dialog for click handling
                     const dialog = this.dialogManager.activeDialogs.get(dialogId);
@@ -782,7 +960,7 @@ class MainScene extends ThreejsScene {
                 trianglePosition: 'bottom',
                 autoClose: true,
                 autoCloseDelay: 5000,
-                typewriterSpeed: 75
+                typewriterSpeed: 45
             });
         }
     }
@@ -1012,19 +1190,22 @@ class MainScene extends ThreejsScene {
             .name('Max Music Volume')
             .step(0.05)
             .onChange((value) => {
-                if (this.flyawayAudio) {
-                    // this.flyawayAudio.volume = Math.min(value, this.flyawayAudio.volume);
+                if (this.beachAudio) {
+                    this.beachAudio.volume = value;
                 }
             });
 
         // Manual audio controls
         const audioActions = {
             playSeagullSound: () => this.playSeagullSound(),
+            playWelcomeMusic: () => this.playWelcomeMusic(),
+            stopWelcomeMusic: () => this.stopWelcomeMusic(),
             playBackgroundMusic: () => this.playBackgroundMusic(),
             stopBackgroundMusic: () => {
-                if (this.flyawayAudio) {
-                    this.flyawayAudio.pause();
-                    this.flyawayAudio.currentTime = 0;
+                if (this.beachAudio) {
+                    this.beachAudio.pause();
+                    this.beachAudio.currentTime = 0;
+                    console.log('Beach background music stopped');
                 }
             },
             restartIntro: () => this.startIntroAnimation(),
@@ -1042,8 +1223,10 @@ class MainScene extends ThreejsScene {
         };
         
         audioFolder.add(audioActions, 'playSeagullSound').name('Play Seagull Sound');
-        audioFolder.add(audioActions, 'playBackgroundMusic').name('Play Background Music');
-        audioFolder.add(audioActions, 'stopBackgroundMusic').name('Stop Background Music');
+        audioFolder.add(audioActions, 'playWelcomeMusic').name('Play Welcome Music');
+        audioFolder.add(audioActions, 'stopWelcomeMusic').name('Stop Welcome Music');
+        audioFolder.add(audioActions, 'playBackgroundMusic').name('Play Beach Music');
+        audioFolder.add(audioActions, 'stopBackgroundMusic').name('Stop Beach Music');
         audioFolder.add(audioActions, 'restartIntro').name('Restart Intro Animation');
         audioFolder.add(audioActions, 'checkSeagulls').name('Check Seagulls Status');
         audioFolder.add(audioActions, 'showSeagulls').name('Show Seagulls Manually');
@@ -1208,6 +1391,9 @@ class MainScene extends ThreejsScene {
         
         console.log('Initializing welcome dialog - creating with animation');
         
+        // Track if welcome music has started
+        let welcomeMusicStarted = false;
+        
         // Create dialog immediately - the DialogManager handles the pop-in animation
         const welcomeDialogId = this.dialogManager.showDialog({
             textSequence: [
@@ -1216,11 +1402,22 @@ class MainScene extends ThreejsScene {
                 { textKey: 'welcome_3' }
             ],
             position: { x: 50, y: 50, anchor: 'center' },
-            typewriterSpeed: 85,
+            typewriterSpeed: 45,
+            onFirstClick: () => {
+                // Play welcome music on first click
+                if (!welcomeMusicStarted) {
+                    console.log('Starting welcome music on first dialog click');
+                    this.playWelcomeMusic();
+                    welcomeMusicStarted = true;
+                }
+            },
             onSequenceComplete: (dialogId) => {
-                console.log('Welcome sequence completed');
+                console.log('Welcome sequence completed, starting intro animation');
                 this.dialogManager.closeDialog(dialogId);
                 this.hideStartButton();
+                
+                // Stop welcome music and start intro
+                this.stopWelcomeMusic();
                 
                 // Wait a moment then start intro
                 if (this.allModelsLoaded) {
@@ -1256,6 +1453,39 @@ class MainScene extends ThreejsScene {
         if (this.animationsCompleted.camera && this.animationsCompleted.pixel) {
             console.log('All intro animations completed, starting seabreeze audio');
             this.playSeabreezeAudio();
+            
+            // Start Leo's introduction sequence automatically after camera animation
+            setTimeout(() => {
+                this.startLeoIntroSequence();
+            }, 1000); // Small delay after camera animation
+        }
+    }
+    
+    /**
+     * Start Leo's introduction sequence automatically
+     */
+    startLeoIntroSequence() {
+        if (this.characterModel && !this.characterModel.userData.hasShownIntro) {
+            console.log('Starting Leo intro sequence automatically');
+            
+            // Trigger the intro sequence
+            this.characterModel.userData.hasShownIntro = true;
+            const leoIntroId = this.dialogManager.showDialog({
+                textSequence: [
+                    { textKey: 'leo_intro_1' },
+                    { textKey: 'leo_intro_2' },
+                    { textKey: 'leo_intro_3' }
+                ],
+                followObject: this.characterModel,
+                followOffset: { x: 0, y: 150, z: 0 },
+                trianglePosition: 'bottom',
+                typewriterSpeed: 45,
+                onSequenceComplete: (dialogId) => {
+                    console.log('Leo intro sequence completed, starting beach music');
+                    // Start beach music after intro sequence
+                    this.playBackgroundMusic();
+                }
+            });
         }
     }
 
@@ -1544,11 +1774,12 @@ class MainScene extends ThreejsScene {
      * @param {Object} physicsConfig - Physics configuration
      */
     createModelPhysics(model, physicsConfig) {
-        const { type, mass = 0, shape = 'box', material = null } = physicsConfig;
+        const { type, mass = 0, shape = 'box', material = null, sizeMultiplier = 1.0 } = physicsConfig;
         
         // Calculate bounding box for physics shape
         const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
+        const originalSize = box.getSize(new THREE.Vector3());
+        const size = originalSize.clone().multiplyScalar(sizeMultiplier); // Apply size multiplier
         const center = box.getCenter(new THREE.Vector3());
         
         let physicsShape;
@@ -1568,10 +1799,13 @@ class MainScene extends ThreejsScene {
                 break;
         }
         
-        // Create physics body
+        // Calculate offset between model position and bounding box center
+        const physicsOffset = center.clone().sub(model.position);
+        
+        // Create physics body positioned at the bounding box center for proper alignment
         const physicsBody = new CANNON.Body({
             mass: mass,
-            position: new CANNON.Vec3(model.position.x, model.position.y, model.position.z),
+            position: new CANNON.Vec3(center.x, center.y, center.z),
             shape: physicsShape,
             material: material || new CANNON.Material({ friction: 0.6, restitution: 0 })
         });
@@ -1592,10 +1826,56 @@ class MainScene extends ThreejsScene {
             // Dynamic bodies like cubes - can move and be dragged
             this.physicsBodies.push(physicsBody);
             model.userData.physicsBody = physicsBody;
+            model.userData.physicsOffset = physicsOffset; // Store offset for synchronization
             model.userData.draggable = true;
+            
+            // Create contact materials with island bodies for proper collision
+            if (this.groundBody && this.groundBody.material) {
+                const contactMaterial = new CANNON.ContactMaterial(
+                    physicsBody.material,
+                    this.groundBody.material,
+                    {
+                        friction: 0.8,
+                        restitution: 0.1,
+                        contactEquationStiffness: 1e8,
+                        contactEquationRelaxation: 3,
+                        frictionEquationStiffness: 1e8,
+                        frictionEquationRelaxation: 3
+                    }
+                );
+                this.physicsWorld.addContactMaterial(contactMaterial);
+            }
+            
+            // Create contact materials with all island bodies if available
+            if (this.islandBodies && this.islandBodies.length > 0) {
+                this.islandBodies.forEach(islandBody => {
+                    if (islandBody.material) {
+                        const contactMaterial = new CANNON.ContactMaterial(
+                            physicsBody.material,
+                            islandBody.material,
+                            {
+                                friction: 0.8,
+                                restitution: 0.1,
+                                contactEquationStiffness: 1e8,
+                                contactEquationRelaxation: 3
+                            }
+                        );
+                        this.physicsWorld.addContactMaterial(contactMaterial);
+                    }
+                });
+            }
         }
         
-        console.log(`Created ${type} physics body for model:`, { mass, shape, size });
+        console.log(`Created ${type} physics body for model:`, { 
+            mass, 
+            shape, 
+            originalSize: originalSize,
+            adjustedSize: size,
+            sizeMultiplier: sizeMultiplier,
+            modelPosition: model.position,
+            physicsBodyPosition: physicsBody.position,
+            offset: physicsOffset
+        });
     }
 
     loadSeagullModels(loader) {
@@ -1621,7 +1901,7 @@ class MainScene extends ThreejsScene {
             (gltf) => {
                 console.log('Seagull 1 GLTF loaded successfully:', gltf);
                 const seagull1 = gltf.scene;
-                seagull1.scale.set(4, 4, 4); // Reduced from 15 to 4 for better proportions
+                seagull1.scale.set(2.5, 2.5, 2.5); // Reduced from 15 to 4 for better proportions
                 seagull1.position.set(seagull1X, this.seagullConfig.spawnHeight, seagull1Z);
                 seagull1.lookAt(0, this.seagullConfig.spawnHeight, 0);
                 seagull1.visible = false; // Initially hidden
@@ -1679,14 +1959,33 @@ class MainScene extends ThreejsScene {
         }
     }
 
+    playWelcomeMusic() {
+        if (this.welcomeAudio && this.audioLoaded) {
+            this.welcomeAudio.currentTime = 0; // Reset to beginning
+            this.welcomeAudio.play().then(() => {
+                console.log('Welcome music started');
+            }).catch((error) => {
+                console.error('Error playing welcome music:', error);
+            });
+        }
+    }
+
+    stopWelcomeMusic() {
+        if (this.welcomeAudio) {
+            this.welcomeAudio.pause();
+            this.welcomeAudio.currentTime = 0;
+            console.log('Welcome music stopped');
+        }
+    }
+
     playBackgroundMusic() {
-        if (this.flyawayAudio && this.audioLoaded) {
-            this.flyawayAudio.currentTime = 0;
-            this.flyawayAudio.play().then(() => {
-                console.log('Background music started');
+        if (this.beachAudio && this.audioLoaded) {
+            this.beachAudio.currentTime = 0;
+            this.beachAudio.play().then(() => {
+                console.log('Beach background music started');
                 this.fadeInMusic();
             }).catch((error) => {
-                console.log('Background music autoplay prevented:', error);
+                console.log('Beach background music autoplay prevented:', error);
             });
         }
     }
@@ -1694,15 +1993,16 @@ class MainScene extends ThreejsScene {
     fadeInMusic() {
         const startTime = performance.now();
         const startVolume = 0;
-        const endVolume = this.seagullConfig.maxMusicVolume;
+        const endVolume = this.seagullConfig.maxMusicVolume || 0.3;
         const duration = this.seagullConfig.musicFadeInDuration;
         
         const fadeIn = (currentTime) => {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
             
-            // this.flyawayAudio.volume = 0.08;
-            //startVolume + (endVolume - startVolume) * progress;
+            if (this.beachAudio) {
+                this.beachAudio.volume = startVolume + (endVolume - startVolume) * progress;
+            }
             
             if (progress < 1) {
                 requestAnimationFrame(fadeIn);
@@ -1782,11 +2082,9 @@ class MainScene extends ThreejsScene {
                     console.log(`Seagull ${index + 1} final position:`, seagull.position, 'angle:', seagull.userData.transitionAngle);
                 });
                 
-                // Start circular flight and schedule background music
+                // Start circular flight - music will start only after Leo's intro
                 this.startCircularFlight();
-                setTimeout(() => {
-                    this.playBackgroundMusic();
-                }, this.seagullConfig.musicDelay);
+                console.log('Seagulls have arrived, but music will wait for Leo\'s introduction');
             }
         };
         
@@ -1916,7 +2214,7 @@ class MainScene extends ThreejsScene {
 
     createIsland() {
         // Position for the island - centered at origin, higher up for tree connection
-        const islandPosition = new THREE.Vector3(0, 30, 0);
+        const islandPosition = new THREE.Vector3(0, 45, 0);
         
         // Create the loader for the island model
         const dracoLoader = new DRACOLoader();
@@ -1942,7 +2240,7 @@ class MainScene extends ThreejsScene {
                 const islandBody = new CANNON.Body({
                     mass: 0, // Static body
                     shape: islandShape,
-                    position: new CANNON.Vec3(0, 20, 0),
+                    position: new CANNON.Vec3(0, 35, 0),
                     material: new CANNON.Material({ friction: 0.6, restitution: 0 })
                 });
                 
@@ -2067,6 +2365,10 @@ class MainScene extends ThreejsScene {
         
         // Store the first body as the main ground reference
         this.groundBody = tempBodies[0] || this.createFallbackPhysics(position);
+        
+        // Store all island bodies for contact material creation with other objects
+        this.islandBodies = tempBodies;
+        
         console.log(`Created ${tempBodies.length} physics bodies for island approximation`);
     }
     
@@ -2175,7 +2477,7 @@ class MainScene extends ThreejsScene {
                 time: { value: 0 },
                 map: { value: gradientTexture },
                 distortionStrength: { value: 0.5 },
-                opacity: { value: 0.975 }
+                opacity: { value: 0.955 }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -2263,8 +2565,28 @@ class MainScene extends ThreejsScene {
         this.physicsBodies.forEach((body, index) => {
             if (!body) return;
             
+            // Skip ocean gravity effects for the currently dragged object
+            if (this.selectedCube) {
+                // Check if this body belongs to the selected object
+                if (this.selectedCube.userData && this.selectedCube.userData.physicsBody === body) {
+                    // Clear forces but don't apply ocean gravity - let manual dragging handle it
+                    body.force.set(0, 0, 0);
+                    return;
+                }
+                // Also check by index for cubes without userData.physicsBody
+                const selectedIndex = this.geometries.indexOf(this.selectedCube);
+                if (selectedIndex !== -1 && index === selectedIndex) {
+                    body.force.set(0, 0, 0);
+                    return;
+                }
+            }
+            
             // CRITICAL: Clear accumulated forces from previous frame
             body.force.set(0, 0, 0);
+            
+            // Check if this is a boat - boats should float higher
+            const isBoat = body.userData?.isBoat || (body.material && body.mass === 5);
+            const effectiveOceanLevel = isBoat ? this.oceanLevel + 15 : this.oceanLevel; // Boats float 15 units higher
             
             // Get or initialize the underwater state for this body
             if (!this.bodyUnderwaterStates.has(body)) {
@@ -2281,9 +2603,9 @@ class MainScene extends ThreejsScene {
             const state = this.bodyUnderwaterStates.get(body);
             const currentY = body.position.y;
             
-            // Simple hysteresis to prevent flickering
-            const upperThreshold = this.oceanLevel + this.gravityConfig.hysteresis;
-            const lowerThreshold = this.oceanLevel - this.gravityConfig.hysteresis;
+            // Simple hysteresis to prevent flickering - use effective ocean level for boats
+            const upperThreshold = effectiveOceanLevel + this.gravityConfig.hysteresis;
+            const lowerThreshold = effectiveOceanLevel - this.gravityConfig.hysteresis;
             
             let shouldBeUnderwater;
             if (state.isUnderwater) {
@@ -2384,11 +2706,22 @@ class MainScene extends ThreejsScene {
 
         // Synchronize Three.js cubes with Cannon.js bodies
         this.geometries.forEach((cube, index) => {
-            const body = this.physicsBodies[index];
-            if (!body) return;
-            // Synchronize the Three.js cube with the physics body
-            cube.position.copy(body.position);
-            cube.quaternion.copy(body.quaternion);
+            // Check if this model has its own physics body stored in userData
+            if (cube.userData && cube.userData.physicsBody) {
+                const body = cube.userData.physicsBody;
+                const offset = cube.userData.physicsOffset || new THREE.Vector3(0, 0, 0);
+                
+                // Synchronize model position accounting for physics offset
+                cube.position.copy(body.position).sub(offset);
+                cube.quaternion.copy(body.quaternion);
+            } else {
+                // Fallback to index-based lookup for regular cubes
+                const body = this.physicsBodies[index];
+                if (!body) return;
+                // Synchronize the Three.js cube with the physics body
+                cube.position.copy(body.position);
+                cube.quaternion.copy(body.quaternion);
+            }
         });
 
         // Update seagull animations
@@ -2497,33 +2830,33 @@ class MainScene extends ThreejsScene {
         
         // Welcome message sequence translations
         this.dialogManager.addTranslation('welcome_1', {
-            'en': 'WHERE AM I...',
-            'pt': 'ONDE ESTOU...',
-            'es': 'DÓNDE ESTOY...',
-            'fr': 'OÙ SUIS-JE...',
-            'de': 'WO BIN ICH...',
-            'ja': 'ここはどこ...',
-            'zh': '我在哪里...'
+            'pt': 'OI...',
+            'en': 'HI...',
+            'es': 'HOLA...',
+            'fr': 'SALUT...',
+            'de': 'HALLO...',
+            'ja': 'こんにちは...',
+            'zh': '你好...'
         });
         
         this.dialogManager.addTranslation('welcome_2', {
-            'en': 'THIS PLACE SEEMS FAMILIAR...',
-            'pt': 'ESTE LUGAR PARECE FAMILIAR...',
-            'es': 'ESTE LUGAR ME RESULTA FAMILIAR...',
-            'fr': 'CET ENDROIT SEMBLE FAMILIER...',
-            'de': 'DIESER ORT SCHEINT VERTRAUT...',
-            'ja': 'この場所は見覚えがある...',
-            'zh': '这个地方看起来很熟悉...'
+            'pt': 'ONDE ESTAMOS ?..',
+            'en': 'WHERE ARE WE ?..',
+            'es': '¿DÓNDE ESTAMOS ?..',
+            'fr': 'OÙ SOMMES-NOUS ?..',
+            'de': 'WO SIND WIR ?..',
+            'ja': 'ここはどこ？..',
+            'zh': '我们在哪里？..'
         });
         
         this.dialogManager.addTranslation('welcome_3', {
-            'en': 'LET ME EXPLORE...',
-            'pt': 'DEIXE-ME EXPLORAR...',
-            'es': 'DÉJAME EXPLORAR...',
-            'fr': 'LAISSEZ-MOI EXPLORER...',
-            'de': 'LASS MICH ERKUNDEN...',
-            'ja': '探索してみよう...',
-            'zh': '让我探索一下...'
+            'pt': 'NÃO CONSIGO ME LEMBRAR ...',
+            'en': 'I CAN\'T REMEMBER ...',
+            'es': 'NO PUEDO RECORDAR ...',
+            'fr': 'JE NE PEUX PAS ME SOUVENIR ...',
+            'de': 'ICH KANN MICH NICHT ERINNERN ...',
+            'ja': '思い出せない...',
+            'zh': '我想不起来了...'
         });
         
         // Keep the original welcome translation for backward compatibility
@@ -2548,6 +2881,17 @@ class MainScene extends ThreejsScene {
             'zh': '一棵孤独的棕榈树屹立着...'
         });
         
+        // Rock interaction
+        this.dialogManager.addTranslation('rock_intro', {
+            'en': 'Ancient rocks scattered around the island...',
+            'pt': 'Rochas antigas espalhadas pela ilha...',
+            'es': 'Rocas antiguas esparcidas por la isla...',
+            'fr': 'Roches anciennes éparpillées autour de l\'île...',
+            'de': 'Alte Felsen verstreut um die Insel...',
+            'ja': '島の周りに散らばる古い岩...',
+            'zh': '散落在岛屿周围的古老岩石...'
+        });
+        
         this.dialogManager.addTranslation('cube_interaction', {
             'en': 'These floating cubes... they seem familiar. Try dragging them around!',
             'pt': 'Esses cubos flutuantes... parecem familiares. Tente arrastá-los!',
@@ -2566,6 +2910,70 @@ class MainScene extends ThreejsScene {
             'de': 'Möwen... vielleicht bin ich nicht allein.',
             'ja': 'カモメ...私は一人ではないのかもしれない。',
             'zh': '海鸥...也许我并不孤单。'
+        });
+        
+        // Boat interaction
+        this.dialogManager.addTranslation('boat_intro', {
+            'en': 'An old wooden boat... How did it get here?',
+            'pt': 'Um barco de madeira velho... Como chegou aqui?',
+            'es': 'Un viejo barco de madera... ¿Cómo llegó aquí?',
+            'fr': 'Un vieux bateau en bois... Comment est-il arrivé ici?',
+            'de': 'Ein altes Holzboot... Wie ist es hierher gekommen?',
+            'ja': '古い木製のボート...どうやってここに？',
+            'zh': '一艘旧木船...它是怎么到这里的？'
+        });
+        
+        // Crate interaction
+        this.dialogManager.addTranslation('crate_interaction', {
+            'en': 'A wooden crate... What could be inside? Try dragging it around!',
+            'pt': 'Uma caixa de madeira... O que pode haver dentro? Tente arrastá-la!',
+            'es': 'Una caja de madera... ¿Qué podría haber dentro? ¡Intenta arrastrarla!',
+            'fr': 'Une caisse en bois... Que pourrait-il y avoir dedans? Essayez de la faire glisser!',
+            'de': 'Eine Holzkiste... Was könnte drin sein? Versuchen Sie, sie zu ziehen!',
+            'ja': '木箱...中に何があるのだろう？ドラッグしてみて！',
+            'zh': '一个木箱...里面会有什么？试着拖动它！'
+        });
+        
+        // Character interaction - Leo Sato introduction sequence
+        this.dialogManager.addTranslation('leo_intro_1', {
+            'en': 'HEY... I\'M LEO SATO, HOW\'S IT GOING?',
+            'pt': 'OPA... SOU LEO SATO, COMO VAI?',
+            'es': 'OYE... SOY LEO SATO, ¿QUÉ TAL?',
+            'fr': 'SALUT... JE SUIS LEO SATO, COMMENT ÇA VA?',
+            'de': 'HEY... ICH BIN LEO SATO, WIE GEHT\'S?',
+            'ja': 'やあ...レオ・サトです、元気？',
+            'zh': '嘿...我是LEO SATO，你好吗？'
+        });
+        
+        this.dialogManager.addTranslation('leo_intro_2', {
+            'en': 'I DON\'T KNOW HOW I ENDED UP HERE...',
+            'pt': 'NÃO SEI COMO VIM PARAR AQUI...',
+            'es': 'NO SÉ CÓMO TERMINÉ AQUÍ...',
+            'fr': 'JE NE SAIS PAS COMMENT J\'AI FINI ICI...',
+            'de': 'ICH WEIß NICHT, WIE ICH HIER GELANDET BIN...',
+            'ja': 'どうやってここに来たのか分からない...',
+            'zh': '我不知道我是怎么到这里的...'
+        });
+        
+        this.dialogManager.addTranslation('leo_intro_3', {
+            'en': 'I WAS TRAVELING WITH MY THINGS, AND SUDDENLY...',
+            'pt': 'ESTAVA VIAJANDO COM MINHAS COISAS, E DE REPENTE...',
+            'es': 'ESTABA VIAJANDO CON MIS COSAS, Y DE REPENTE...',
+            'fr': 'JE VOYAGEAIS AVEC MES AFFAIRES, ET SOUDAIN...',
+            'de': 'ICH WAR MIT MEINEN SACHEN UNTERWEGS, UND PLÖTZLICH...',
+            'ja': '荷物を持って旅行していたのに、突然...',
+            'zh': '我带着我的东西在旅行，突然...'
+        });
+        
+        // Keep original character interaction for other clicks
+        this.dialogManager.addTranslation('character_intro', {
+            'en': 'Is that... me? What am I doing here?',
+            'pt': 'Isso é... eu? O que estou fazendo aqui?',
+            'es': '¿Ese soy... yo? ¿Qué estoy haciendo aquí?',
+            'fr': 'Est-ce que c\'est... moi? Que fais-je ici?',
+            'de': 'Bin das... ich? Was mache ich hier?',
+            'ja': 'あれは...私？何をしているんだろう？',
+            'zh': '那是...我吗？我在这里做什么？'
         });
     }
 }
