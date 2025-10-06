@@ -1,5 +1,5 @@
 import ThreejsScene from '../base/scene.js';
-import DialogManager from '../base/DialogManager.js';
+import DialogManager from '../base/DialogManager.js?v=2';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
@@ -74,15 +74,14 @@ class MainScene extends ThreejsScene {
         this.seagulls = [];
         this.seagullMixers = [];
         this.seagullConfig = {
-            introFlightDuration: 4000, // Duration for initial flight to center
+            introFlightDuration: 8000, // Duration for initial flight to center (slower: 4000 → 6000ms)
             circularFlightRadius: 150, // Radius for circular flight around center
-            circularFlightSpeed: 0.5, // Speed of circular movement
+            circularFlightSpeed: 0.5, // Speed of circular movement (slower: 0.5 → 0.3)
             circularFlightHeight: 320, // Height above ground for circular flight (increased for more natural look)
             spawnDistance: 800, // Distance from center where seagulls spawn
             spawnHeight: 120, // Initial spawn height (increased for higher flight)
-            musicDelay: 3000, // Delay before background music starts
-            musicFadeInDuration: 2000, // Duration for music volume fade-in
-            // maxMusicVolume: 0.3 // Maximum volume for background music
+            wingFlappingSpeed: 0.6, // Speed of wing flapping animation (1.0 = normal, 0.5 = half speed)
+            musicDelay: 3000 // Delay before background music starts
         };
 
         // Camera animation properties
@@ -106,7 +105,7 @@ class MainScene extends ThreejsScene {
 
     loadAudio() {
         // Seabreeze ambient audio
-        this.seabreezeAudio = new Audio('sounds/background/seabreeze.wav');
+        this.seabreezeAudio = new Audio('sounds/background/seabreeze_high.wav');
         this.seabreezeAudio.loop = true;
         // this.seabreezeAudio.volume = 0.8;
         
@@ -464,29 +463,29 @@ class MainScene extends ThreejsScene {
             }
         );
 
-        // Load wooden boat - floating on ocean with physics
-        this.loadModel(loader, 'models/boat.glb', [180, 50, 180], [0.3, 0.3, 0.3], [0, Math.PI / 4, 0], true,
+        // Load wooden boat - static like island, objects can sit on it
+        this.loadModel(loader, 'models/boat.glb', [180, -20, 180], [0.3, 0.3, 0.3], [0, Math.PI / 4, 0], true,
             {
-                type: 'dynamic', // Dynamic physics like cubes
-                mass: 5, // Give it some mass but heavier than cubes
+                type: 'static', // Static physics like island - won't move
+                mass: 0, // No mass - completely static
                 shape: 'box',
-                sizeMultiplier: 0.5, // Make physics body 50% smaller than visual model
+                sizeMultiplier: 0.7, // Reduced size - 70% of model size for better collision accuracy
                 material: new CANNON.Material({ friction: 0.8, restitution: 0.2 })
             },
             (model) => {
-                // Store reference to boat for dialog interaction
+                // Store reference to boat 
                 this.boat = model;
                 
-                // Add click interaction for boat
-                model.userData.interactive = true;
-                model.userData.dialogKey = 'boat_intro';
-                // model.userData.draggable = true; // Disabled dragging - boat is dialog-only now
-                model.userData.name = 'Wooden Boat';
+                // No interactivity - boat is purely decorative/platform
+                // model.userData.interactive = false; // Not interactive
+                // model.userData.dialogKey = undefined; // No dialog
+                // model.userData.draggable = false; // Not draggable
+                model.userData.name = 'Wooden Boat (Static Platform)';
                 
-                // Add to geometries array for interaction and physics updates
-                this.geometries.push(model);
+                // Don't add to geometries array since it's not interactive
+                // this.geometries.push(model); // Removed - no interaction needed
                 
-                console.log('Wooden boat loaded with dialog interaction only (dragging disabled)');
+                console.log('Wooden boat loaded as static platform - objects can sit on it, no interaction');
             }
         );
 
@@ -914,6 +913,7 @@ class MainScene extends ThreejsScene {
                         console.log('Leo intro sequence completed, starting beach music');
                         // Start beach music after intro sequence
                         this.playBackgroundMusic();
+                        // Dialog will be closed automatically by DialogManager
                     }
                 });
             } else {
@@ -1181,19 +1181,6 @@ class MainScene extends ThreejsScene {
         audioFolder.add(this.seagullConfig, 'musicDelay', 0, 10000)
             .name('Music Delay (ms)')
             .step(100);
-            
-        audioFolder.add(this.seagullConfig, 'musicFadeInDuration', 500, 5000)
-            .name('Music Fade Duration (ms)')
-            .step(100);
-            
-        audioFolder.add(this.seagullConfig, 'maxMusicVolume', 0, 1)
-            .name('Max Music Volume')
-            .step(0.05)
-            .onChange((value) => {
-                if (this.beachAudio) {
-                    this.beachAudio.volume = value;
-                }
-            });
 
         // Manual audio controls
         const audioActions = {
@@ -1983,34 +1970,13 @@ class MainScene extends ThreejsScene {
             this.beachAudio.currentTime = 0;
             this.beachAudio.play().then(() => {
                 console.log('Beach background music started');
-                this.fadeInMusic();
             }).catch((error) => {
                 console.log('Beach background music autoplay prevented:', error);
             });
         }
     }
 
-    fadeInMusic() {
-        const startTime = performance.now();
-        const startVolume = 0;
-        const endVolume = this.seagullConfig.maxMusicVolume || 0.3;
-        const duration = this.seagullConfig.musicFadeInDuration;
-        
-        const fadeIn = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            if (this.beachAudio) {
-                this.beachAudio.volume = startVolume + (endVolume - startVolume) * progress;
-            }
-            
-            if (progress < 1) {
-                requestAnimationFrame(fadeIn);
-            }
-        };
-        
-        requestAnimationFrame(fadeIn);
-    }
+
 
     startSeagullIntroFlight() {
         console.log('Starting seagull intro flight, seagulls loaded:', this.seagulls.length);
@@ -2724,10 +2690,11 @@ class MainScene extends ThreejsScene {
             }
         });
 
-        // Update seagull animations
+        // Update seagull animations with custom wing flapping speed
         if (this.seagullMixers) {
+            const seagullTimeStep = timeStep * this.seagullConfig.wingFlappingSpeed;
             this.seagullMixers.forEach(mixer => {
-                mixer.update(timeStep);
+                mixer.update(seagullTimeStep);
             });
         }
 
@@ -2811,6 +2778,29 @@ class MainScene extends ThreejsScene {
             this.oceanGeometry.computeVertexNormals();
         }
 
+        // Update boat ondulation (floating animation)
+        if (this.boat) {
+            // Gentle floating motion - up/down movement
+            const floatAmplitude = 1.2; // How much the boat moves up and down
+            const floatSpeed = 0.8; // Speed of floating motion
+            const baseY = -20; // Original Y position of the boat
+            
+            // Apply gentle up/down floating motion
+            this.boat.position.y = baseY + Math.sin(elapsedTime * floatSpeed) * floatAmplitude;
+            
+            // Gentle rocking motion - rotation around X and Z axes
+            const rockAmplitude = 0.08; // How much the boat rocks (in radians)
+            const rockSpeedX = 0.6; // Speed of front-to-back rocking
+            const rockSpeedZ = 0.4; // Speed of side-to-side rocking
+            
+            // Apply gentle rocking rotations
+            this.boat.rotation.x = Math.sin(elapsedTime * rockSpeedX) * rockAmplitude;
+            this.boat.rotation.z = Math.sin(elapsedTime * rockSpeedZ + 1.5) * rockAmplitude * 0.7; // Slightly less side rocking
+            
+            // Keep original Y rotation (boat orientation) unchanged
+            // this.boat.rotation.y stays at Math.PI / 4 as set in loadModel
+        }
+
         // Update ocean material time uniform
         // if (this.oceanMaterial) {
         //     this.oceanMaterial.uniforms.time.value = elapsedTime;
@@ -2858,16 +2848,15 @@ class MainScene extends ThreejsScene {
             'ja': '思い出せない...',
             'zh': '我想不起来了...'
         });
-        
-        // Keep the original welcome translation for backward compatibility
-        this.dialogManager.addTranslation('welcome', {
-            'en': 'WHERE AM I...',
-            'pt': 'ONDE ESTOU...',
-            'es': 'DÓNDE ESTOY...',
-            'fr': 'OÙ SUIS-JE...',
-            'de': 'WO BIN ICH...',
-            'ja': 'ここはどこ...',
-            'zh': '我在哪里...'
+
+        this.dialogManager.addTranslation('welcome_3', {
+            'pt': 'NÃO CONSIGO ME LEMBRAR ...',
+            'en': 'I CAN\'T REMEMBER ...',
+            'es': 'NO PUEDO RECORDAR ...',
+            'fr': 'JE NE PEUX PAS ME SOUVENIR ...',
+            'de': 'ICH KANN MICH NICHT ERINNERN ...',
+            'ja': '思い出せない...',
+            'zh': '我想不起来了...'
         });
         
         // Example interactions with objects
@@ -2934,15 +2923,15 @@ class MainScene extends ThreejsScene {
             'zh': '一个木箱...里面会有什么？试着拖动它！'
         });
         
-        // Character interaction - Leo Sato introduction sequence
+        // Character interaction - Leo introduction sequence
         this.dialogManager.addTranslation('leo_intro_1', {
-            'en': 'HEY... I\'M LEO SATO, HOW\'S IT GOING?',
-            'pt': 'OPA... SOU LEO SATO, COMO VAI?',
-            'es': 'OYE... SOY LEO SATO, ¿QUÉ TAL?',
-            'fr': 'SALUT... JE SUIS LEO SATO, COMMENT ÇA VA?',
-            'de': 'HEY... ICH BIN LEO SATO, WIE GEHT\'S?',
+            'en': 'HEY... I\'M LEO, HOW\'S IT GOING?',
+            'pt': 'OPA... SOU LEO, COMO VAI?',
+            'es': 'OYE... SOY LEO, ¿QUÉ TAL?',
+            'fr': 'SALUT... JE SUIS LEO, COMMENT ÇA VA?',
+            'de': 'HEY... ICH BIN LEO, WIE GEHT\'S?',
             'ja': 'やあ...レオ・サトです、元気？',
-            'zh': '嘿...我是LEO SATO，你好吗？'
+            'zh': '嘿...我是LEO，你好吗？'
         });
         
         this.dialogManager.addTranslation('leo_intro_2', {

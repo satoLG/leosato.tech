@@ -247,10 +247,11 @@ class DialogManager {
             .dialog-box {
                 display: flex;
                 align-items: center;
-                justify-content: center;
+                justify-content: left;
                 font-family: 'Press Start 2P', monospace !important;
                 font-size: var(--dialog-font-size);
                 letter-spacing: 1px;
+                line-height: 1.4; /* Add proper line spacing for multi-line text */
                 color: #ffffff;
                 text-align: center;
                 padding: var(--dialog-padding) calc(var(--dialog-padding) * 1.4);
@@ -612,9 +613,9 @@ class DialogManager {
                 console.log('Text sequence completed');
                 if (dialog.onSequenceComplete) {
                     dialog.onSequenceComplete(dialogId);
-                } else {
-                    this.closeDialog(dialogId);
                 }
+                // Always close the dialog after sequence completion
+                this.closeDialog(dialogId);
             }
         } else {
             // Single text dialog - just close

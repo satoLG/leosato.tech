@@ -11,7 +11,7 @@
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-        <link href="./css/main.css?v=2" rel="stylesheet">
+        <link href="./css/main.css?v=3" rel="stylesheet">
     </head>
     <body>
         <div id="footer">
@@ -48,7 +48,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main.js?v=2">
+        <script type="module" src="./js/main.js?v=3">
         </script>
     </body>
 </html>
