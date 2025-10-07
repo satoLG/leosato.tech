@@ -48,7 +48,7 @@
 				}
 			}
 		</script>
-        <script type="module" src="./js/main.js?v=3">
+        <script type="module" src="./js/main.js?v=4">
         </script>
     </body>
 </html>

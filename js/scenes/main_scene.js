@@ -1,5 +1,5 @@
 import ThreejsScene from '../base/scene.js';
-import DialogManager from '../base/DialogManager.js?v=2';
+import DialogManager from '../base/DialogManager.js?v=3';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
@@ -913,11 +913,30 @@ class MainScene extends ThreejsScene {
                         console.log('Leo intro sequence completed, starting beach music');
                         // Start beach music after intro sequence
                         this.playBackgroundMusic();
+                        
+                        // Add dramatic delay before follow-up sequence
+                        console.log('Starting 3-second dramatic pause before follow-up dialog...');
+                        setTimeout(() => {
+                            console.log('Starting Leo follow-up dialog sequence');
+                            this.startLeoFollowUpSequence(model);
+                        }, 3000); // 3-second delay for dramatic effect
+                        
                         // Dialog will be closed automatically by DialogManager
                     }
                 });
+            } else if (model.userData.hasShownFullStory) {
+                // Show brief interaction after full story is complete
+                const characterDialogId = this.dialogManager.showDialog({
+                    textKey: 'leo_brief_interaction',
+                    followObject: model,
+                    followOffset: { x: 0, y: 150, z: 0 },
+                    trianglePosition: 'bottom',
+                    autoClose: true,
+                    autoCloseDelay: 4000,
+                    typewriterSpeed: 40
+                });
             } else {
-                // Show regular character dialog after intro
+                // Show regular character dialog (fallback)
                 const characterDialogId = this.dialogManager.showDialog({
                     textKey: 'character_intro',
                     followObject: model,
@@ -1386,7 +1405,11 @@ class MainScene extends ThreejsScene {
             textSequence: [
                 { textKey: 'welcome_1' },
                 { textKey: 'welcome_2' },
-                { textKey: 'welcome_3' }
+                { textKey: 'welcome_3' },
+                { textKey: 'welcome_4' },
+                { textKey: 'welcome_5' },
+                { textKey: 'welcome_6' },
+                { textKey: 'welcome_7' }
             ],
             position: { x: 50, y: 50, anchor: 'center' },
             typewriterSpeed: 45,
@@ -1468,12 +1491,50 @@ class MainScene extends ThreejsScene {
                 trianglePosition: 'bottom',
                 typewriterSpeed: 45,
                 onSequenceComplete: (dialogId) => {
-                    console.log('Leo intro sequence completed, starting beach music');
-                    // Start beach music after intro sequence
+                    console.log('Leo intro sequence completed, closing dialog and starting music');
+                    // Close the dialog first
+                    this.dialogManager.closeDialog(dialogId);
+                    
+                    // Start beach music immediately
                     this.playBackgroundMusic();
+                    
+                    // Wait 3 seconds for dramatic effect, then start follow-up sequence
+                    setTimeout(() => {
+                        console.log('Starting Leo follow-up sequence after dramatic pause');
+                        this.startLeoFollowUpSequence(this.characterModel);
+                    }, 3000);
                 }
             });
         }
+    }
+
+    /**
+     * Start Leo's follow-up dialog sequence after the music has been playing
+     */
+    startLeoFollowUpSequence(characterModel) {
+        if (!this.dialogManager || !characterModel) {
+            console.warn('Cannot start Leo follow-up sequence - missing DialogManager or character model');
+            return;
+        }
+
+        console.log('Starting Leo follow-up dialog sequence...');
+        
+        const followUpDialogId = this.dialogManager.showDialog({
+            textSequence: [
+                { textKey: 'leo_followup_1' },
+                { textKey: 'leo_followup_2' },
+                { textKey: 'leo_followup_3' }
+            ],
+            followObject: characterModel,
+            followOffset: { x: 0, y: 150, z: 0 },
+            trianglePosition: 'bottom',
+            typewriterSpeed: 50, // Slightly faster for the follow-up
+            onSequenceComplete: (dialogId) => {
+                console.log('Leo follow-up sequence completed - story introduction finished');
+                // Mark that the full introduction story has been told
+                characterModel.userData.hasShownFullStory = true;
+            }
+        });
     }
 
     animateCameraComplete(duration = 3000) {
@@ -2858,16 +2919,56 @@ class MainScene extends ThreejsScene {
             'ja': '思い出せない...',
             'zh': '我想不起来了...'
         });
-        
+
+        this.dialogManager.addTranslation('welcome_4', {
+            'pt': 'COMO VOCÊ CHEGOU AQUI ? ...',
+            'en': 'HOW DID YOU GET HERE ? ...',
+            'es': '¿CÓMO LLEGASTE AQUÍ ? ...',
+            'fr': 'COMMENT ÊTES-VOUS ARRIVÉ ICI ? ...',
+            'de': 'WIE SIND SIE HIERHER GEKOMMEN ? ...',
+            'ja': 'どうやってここに来たの？...',
+            'zh': '我想不起来了...'
+        });
+
+        this.dialogManager.addTranslation('welcome_5', {
+            'pt': 'ENTENDI, DO LINKEDIN ...',
+            'en': 'I SEE, FROM LINKEDIN ...',
+            'es': 'YA VEO, DE LINKEDIN ...',
+            'fr': 'JE VOIS, DE LINKEDIN ...',
+            'de': 'ICH SEHE, VON LINKEDIN ...',
+            'ja': 'ああ、LinkedInからか...',
+            'zh': '我明白了，来自LinkedIn...'
+        });
+
+        this.dialogManager.addTranslation('welcome_6', {
+            'pt': 'PELO MENOS NÃO ESTOU SOZINHO ...',
+            'en': 'AT LEAST I\'M NOT ALONE ...',
+            'es': 'AL MENOS NO ESTOY SOLO ...',
+            'fr': 'AU MOINS, JE NE SUIS PAS SEUL ...',
+            'de': 'WENIGSTENS BIN ICH NICHT ALLEIN ...',
+            'ja': '少なくとも私は一人ではない...',
+            'zh': '至少我不是一个人...'
+        });
+
+        this.dialogManager.addTranslation('welcome_7', {
+            'pt': 'BOM, O QUE ESTÁ FAZENDO AÍ EM CIMA ? DESÇA PRA CÁ ...',
+            'en': 'WELL, WHAT ARE YOU DOING UP THERE? COME DOWN HERE ...',
+            'es': 'BUENO, ¿QUÉ HACES ALLÁ ARRIBA? VEN AQUÍ ...',
+            'fr': 'EH BIEN, QUE FAITES-VOUS LA-HAUT ? DESCENDEZ ICI ...',
+            'de': 'WELL, WAS MACHST DU DA OBEN? KOMM HERUNTER ...',
+            'ja': 'さて、上で何をしているの？降りてきて ...',
+            'zh': '那么，你在上面做什么？下来这里 ...'
+        });
+
         // Example interactions with objects
         this.dialogManager.addTranslation('tree_intro', {
-            'en': 'A lone palm tree stands tall...',
-            'pt': 'Uma palmeira solitária se ergue...',
-            'es': 'Una palmera solitaria se alza...',
-            'fr': 'Un palmier solitaire se dresse...',
-            'de': 'Eine einsame Palme steht hoch...',
-            'ja': '一本のヤシの木が立っている...',
-            'zh': '一棵孤独的棕榈树屹立着...'
+            'en': 'A lone tree stands tall...',
+            'pt': 'Uma árvore solitária se ergue...',
+            'es': 'Un árbol solitario se alza...',
+            'fr': 'Un arbre solitaire se dresse...',
+            'de': 'Ein einsamer Baum steht hoch...',
+            'ja': '一本の木が立っている...',
+            'zh': '一棵孤独的树屹立着...'
         });
         
         // Rock interaction
@@ -2879,26 +2980,6 @@ class MainScene extends ThreejsScene {
             'de': 'Alte Felsen verstreut um die Insel...',
             'ja': '島の周りに散らばる古い岩...',
             'zh': '散落在岛屿周围的古老岩石...'
-        });
-        
-        this.dialogManager.addTranslation('cube_interaction', {
-            'en': 'These floating cubes... they seem familiar. Try dragging them around!',
-            'pt': 'Esses cubos flutuantes... parecem familiares. Tente arrastá-los!',
-            'es': 'Estos cubos flotantes... parecen familiares. ¡Intenta arrastrarlos!',
-            'fr': 'Ces cubes flottants... ils semblent familiers. Essayez de les faire glisser!',
-            'de': 'Diese schwebenden Würfel... sie scheinen vertraut. Versuchen Sie, sie zu ziehen!',
-            'ja': 'これらの浮遊する立方体...見覚えがある。ドラッグしてみて！',
-            'zh': '这些漂浮的方块...看起来很熟悉。试着拖动它们！'
-        });
-        
-        this.dialogManager.addTranslation('seagull_arrival', {
-            'en': 'Seagulls... perhaps I am not alone.',
-            'pt': 'Gaivotas... talvez eu não esteja sozinho.',
-            'es': 'Gaviotas... quizás no estoy solo.',
-            'fr': 'Des mouettes... peut-être ne suis-je pas seul.',
-            'de': 'Möwen... vielleicht bin ich nicht allein.',
-            'ja': 'カモメ...私は一人ではないのかもしれない。',
-            'zh': '海鸥...也许我并不孤单。'
         });
         
         // Boat interaction
@@ -2954,7 +3035,49 @@ class MainScene extends ThreejsScene {
             'zh': '我带着我的东西在旅行，突然...'
         });
         
-        // Keep original character interaction for other clicks
+        // Leo follow-up sequence - continues the story after music starts
+        this.dialogManager.addTranslation('leo_followup_1', {
+            'en': 'THIS MUSIC... IT BRINGS BACK MEMORIES...',
+            'pt': 'ESSA MÚSICA... TRAZ DE VOLTA MEMÓRIAS...',
+            'es': 'ESTA MÚSICA... TRAE RECUERDOS...',
+            'fr': 'CETTE MUSIQUE... ELLE RAPPELLE DES SOUVENIRS...',
+            'de': 'DIESE MUSIK... SIE WECKT ERINNERUNGEN...',
+            'ja': 'この音楽...記憶が蘇る...',
+            'zh': '这音乐...让我想起了回忆...'
+        });
+        
+        this.dialogManager.addTranslation('leo_followup_2', {
+            'en': 'I REMEMBER NOW... I WAS BUILDING A WEBSITE...',
+            'pt': 'LEMBRO AGORA... ESTAVA CONSTRUINDO UM SITE...',
+            'es': 'AHORA RECUERDO... ESTABA CONSTRUYENDO UN SITIO...',
+            'fr': 'JE ME SOUVIENS MAINTENANT... JE CONSTRUISAIS UN SITE...',
+            'de': 'ICH ERINNERE MICH... ICH BAUTE EINE WEBSITE...',
+            'ja': '思い出した...ウェブサイトを作っていた...',
+            'zh': '我记起来了...我在建一个网站...'
+        });
+        
+        this.dialogManager.addTranslation('leo_followup_3', {
+            'en': 'WELCOME TO MY DIGITAL ISLAND! FEEL FREE TO EXPLORE.',
+            'pt': 'BEM-VINDO À MINHA ILHA DIGITAL! FIQUE À VONTADE PARA EXPLORAR.',
+            'es': '¡BIENVENIDO A MI ISLA DIGITAL! SIÉNTETE LIBRE DE EXPLORAR.',
+            'fr': 'BIENVENUE SUR MON ÎLE NUMÉRIQUE ! N\'HÉSITEZ PAS À EXPLORER.',
+            'de': 'WILLKOMMEN AUF MEINER DIGITALEN INSEL! ERKUNDEN SIE GERNE.',
+            'ja': 'デジタル島へようこそ！自由に探索してください。',
+            'zh': '欢迎来到我的数字岛屿！请随意探索。'
+        });
+        
+        // Brief interaction after full story is complete
+        this.dialogManager.addTranslation('leo_brief_interaction', {
+            'en': 'HOPE YOU\'RE ENJOYING THE VISIT!',
+            'pt': 'ESPERO QUE ESTEJA CURTINDO A VISITA!',
+            'es': '¡ESPERO QUE ESTÉS DISFRUTANDO LA VISITA!',
+            'fr': 'J\'ESPÈRE QUE VOUS APPRÉCIEZ LA VISITE !',
+            'de': 'ICH HOFFE, DU GENIEßT DEN BESUCH!',
+            'ja': '訪問を楽しんでいただけてますか！',
+            'zh': '希望你喜欢这次访问！'
+        });
+        
+        // Keep original character interaction for fallback
         this.dialogManager.addTranslation('character_intro', {
             'en': 'Is that... me? What am I doing here?',
             'pt': 'Isso é... eu? O que estou fazendo aqui?',

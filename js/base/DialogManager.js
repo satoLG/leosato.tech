@@ -239,9 +239,10 @@ class DialogManager {
                 pointer-events: none;
                 z-index: 1000;
                 transition: all 0.3s ease;
-                transition: all 0.3s ease;
-                transition: all 0.3s ease;
                 transform-origin: center;
+                /* Performance optimizations for mobile */
+                will-change: transform, opacity;
+                transform: translateZ(0); /* Force hardware acceleration */
             }
             
             .dialog-box {
@@ -272,6 +273,11 @@ class DialogManager {
                 transform-origin: center center;
                 word-wrap: break-word;
                 overflow-wrap: break-word;
+                /* Performance optimizations for mobile */
+                will-change: transform, opacity;
+                transform: translateZ(0); /* Force hardware acceleration */
+                contain: layout style; /* Prevent layout recalculation cascading */
+                isolation: isolate; /* Create new stacking context */
             }
             
             @media (max-width: 768px) {
@@ -367,6 +373,10 @@ class DialogManager {
                 font-weight: bold;
                 animation: blink 1s infinite;
                 margin-left: 2px;
+                /* Performance optimizations for mobile */
+                will-change: opacity;
+                transform: translateZ(0); /* Force hardware acceleration */
+                backface-visibility: hidden;
             }
             
             @keyframes blink {
@@ -694,7 +704,7 @@ class DialogManager {
     }
     
     /**
-     * Type text character by character with sound effects
+     * Type text character by character with sound effects - Optimized for mobile performance
      */
     typeWithSound(container, text, delay, onComplete) {
         // Find the dialog that owns this container to store timeout ID
@@ -705,29 +715,57 @@ class DialogManager {
             }
         });
         
+        // Performance optimization: Create DOM structure once, then only update text content
+        const textNode = document.createTextNode('');
+        const cursorChar = this.getCursorCharacter();
+        const cursorSpan = document.createElement('span');
+        cursorSpan.className = 'Typewriter__cursor';
+        cursorSpan.textContent = cursorChar;
+        
+        // Clear container and set up optimized DOM structure
+        container.innerHTML = '';
+        container.appendChild(textNode);
+        container.appendChild(cursorSpan);
+        
         let index = 0;
-        const typeChar = () => {
+        let lastFrameTime = 0;
+        const minFrameDelay = 16; // ~60fps limit to prevent blocking
+        
+        const typeChar = (currentTime = 0) => {
             // Check if dialog still exists (not destroyed)
             if (!ownerDialog || !this.activeDialogs.has(ownerDialog.dialogId)) {
                 console.log('Dialog destroyed during typing, stopping animation');
                 return;
             }
             
+            // Throttle updates to prevent blocking the main thread
+            if (currentTime - lastFrameTime < minFrameDelay) {
+                if (ownerDialog) {
+                    ownerDialog.typingTimeoutId = requestAnimationFrame(typeChar);
+                }
+                return;
+            }
+            lastFrameTime = currentTime;
+            
             if (index < text.length) {
-                // Clear container and add text up to current index
-                const cursorChar = this.getCursorCharacter();
-                container.innerHTML = text.substring(0, index + 1) + `<span class="Typewriter__cursor">${cursorChar}</span>`;
-                this.playTypingSound();
+                // Efficient update: only change text content, no innerHTML manipulation
+                textNode.textContent = text.substring(0, index + 1);
+                
+                // Play sound (throttled to avoid audio spam)
+                if (index % 2 === 0) { // Play sound every other character for better performance
+                    this.playTypingSound();
+                }
                 index++;
                 
-                // Store timeout ID for potential cancellation
+                // Use setTimeout for timing, requestAnimationFrame for rendering
                 if (ownerDialog) {
-                    ownerDialog.typingTimeoutId = setTimeout(typeChar, delay);
+                    ownerDialog.typingTimeoutId = setTimeout(() => {
+                        requestAnimationFrame(typeChar);
+                    }, delay);
                 }
             } else {
-                // Keep cursor visible after typing is complete
-                const cursorChar = this.getCursorCharacter();
-                container.innerHTML = text + `<span class="Typewriter__cursor">${cursorChar}</span>`;
+                // Typing complete - final text update
+                textNode.textContent = text;
                 if (ownerDialog) {
                     ownerDialog.typingTimeoutId = null; // Clear timeout ID
                 }
@@ -735,11 +773,11 @@ class DialogManager {
             }
         };
         
-        // Start with empty content and cursor
-        const cursorChar = this.getCursorCharacter();
-        container.innerHTML = `<span class="Typewriter__cursor">${cursorChar}</span>`;
+        // Start typing with a small delay to ensure DOM is ready
         if (ownerDialog) {
-            ownerDialog.typingTimeoutId = setTimeout(typeChar, delay);
+            ownerDialog.typingTimeoutId = setTimeout(() => {
+                requestAnimationFrame(typeChar);
+            }, delay);
         }
     }
     
