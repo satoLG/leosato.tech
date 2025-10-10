@@ -2571,6 +2571,114 @@ class MainScene extends ThreejsScene {
 
         // Store material reference for updates
         this.oceanMaterial = oceanMaterial;
+
+        // Create small circular foam planes with holes
+        this.createOceanFoam();
+    }
+
+    createOceanFoam() {
+        this.foamMeshes = [];
+        this.foamVertData = [];
+        
+        // Define positions of rocks and island for foam placement
+        const foamTargets = [
+            // Island center - foam ring around the island
+            { x: 0, z: 0, innerRadius: 120, outerRadius: 140 },
+            // Rock positions (from populateScene method) - foam rings around rocks
+            { x: 250, z: -250, innerRadius: 60, outerRadius: 80 },
+            { x: -250, z: -90, innerRadius: 40, outerRadius: 60 },
+            { x: -255, z: -5, innerRadius: 20, outerRadius: 40 }
+        ];
+        
+        const foamSegments = 16; // Segments for circular geometry
+        
+        // Create one foam ring for each target
+        foamTargets.forEach((target, targetIndex) => {
+            // Create ring geometry with the object's size as inner radius
+            const foamGeometry = new THREE.RingGeometry(target.innerRadius, target.outerRadius, foamSegments, 3);
+            foamGeometry.rotateX(-Math.PI * 0.5); // Rotate to be horizontal like ocean
+            
+            // Create vertex data for wave animation
+            const vertData = [];
+            for (let j = 0; j < foamGeometry.attributes.position.count; j++) {
+                const position = new THREE.Vector3();
+                position.fromBufferAttribute(foamGeometry.attributes.position, j); 
+                vertData.push({
+                    initH: position.y,
+                    amplitude: THREE.MathUtils.randFloatSpread(0.8), // Wave amplitude
+                    phase: THREE.MathUtils.randFloat(0, Math.PI * 2)
+                });
+            }
+            this.foamVertData.push(vertData);
+            
+            // Create foam material that only shows when below ocean level
+            const foamMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    oceanLevel: { value: -1 }, // Ocean Y position
+                    opacity: { value: targetIndex === 0 ? 0.4 : 0.7 }, // Island vs rocks opacity
+                    color: { value: new THREE.Vector3(1.0, 1.0, 1.0) }
+                },
+                vertexShader: `
+                    varying vec3 vWorldPosition;
+                    varying vec2 vUv;
+                    
+                    void main() {
+                        vUv = uv;
+                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPosition.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform float time;
+                    uniform float oceanLevel;
+                    uniform float opacity;
+                    uniform vec3 color;
+                    
+                    varying vec3 vWorldPosition;
+                    varying vec2 vUv;
+                    
+                    void main() {
+                        // Calculate dynamic ocean height at this position (same waves as ocean)
+                        float wave1 = sin(vWorldPosition.x * 0.02 + time * 0.5) * 0.8;
+                        float wave2 = sin(vWorldPosition.z * 0.015 + time * 0.3) * 0.6;
+                        float wave3 = sin((vWorldPosition.x + vWorldPosition.z) * 0.01 + time * 0.8) * 0.4;
+                        float dynamicOceanLevel = oceanLevel + wave1 + wave2 + wave3;
+                        
+                        // Only show foam when it's below the dynamic ocean surface
+                        float foamVisibility = step(vWorldPosition.y, dynamicOceanLevel);
+                        
+                        // Add some fade effect near the ocean surface
+                        float fadeDistance = 1.0; // Distance for fade effect
+                        float surfaceDistance = dynamicOceanLevel - vWorldPosition.y;
+                        float fadeFactor = smoothstep(0.0, fadeDistance, surfaceDistance);
+                        
+                        // Combine visibility with fade
+                        float finalOpacity = foamVisibility * fadeFactor * opacity;
+                        
+                        gl_FragColor = vec4(color, finalOpacity);
+                    }
+                `,
+                transparent: true,
+                side: THREE.DoubleSide,
+                depthWrite: false // Prevent depth issues with transparency
+            });
+            
+            // Create mesh positioned exactly at the target
+            const foamMesh = new THREE.Mesh(foamGeometry, foamMaterial);
+            
+            // Position foam ring exactly at the object's position
+            foamMesh.position.x = target.x;
+            foamMesh.position.z = target.z;
+            foamMesh.position.y = 50; // 1 unit above ocean level (-1 + 1 = 0)
+            
+            // Add slight random rotation for natural look
+            foamMesh.rotation.y = Math.random() * Math.PI * 2;
+            
+            this.scene.add(foamMesh);
+            this.foamMeshes.push(foamMesh);
+        });
     }
 
     animate() {
@@ -2831,12 +2939,44 @@ class MainScene extends ThreejsScene {
         // Update ocean waves
         if (this.vertData) {
             this.vertData.forEach((vd, idx) => {
-                const y = vd.initH + Math.sin((elapsedTime) + vd.phase) * vd.amplitude * 25;
+                const y = vd.initH + Math.sin((elapsedTime) + vd.phase) * vd.amplitude * 5;
                 this.oceanGeometry.attributes.position.setY(idx, y);
             });
             
             this.oceanGeometry.attributes.position.needsUpdate = true;
             this.oceanGeometry.computeVertexNormals();
+        }
+
+        // Update foam waves with similar animation to ocean
+        if (this.foamMeshes && this.foamVertData) {
+            this.foamMeshes.forEach((foamMesh, foamIndex) => {
+                const vertData = this.foamVertData[foamIndex];
+                
+                // Update vertices with wave animation
+                vertData.forEach((vd, idx) => {
+                    // Similar wave calculation to ocean but with different parameters
+                    const waveOffset = elapsedTime * 0.8; // Slightly different speed
+                    const y = vd.initH + Math.sin(waveOffset + vd.phase) * vd.amplitude * 50; // Smaller amplitude
+                    foamMesh.geometry.attributes.position.setY(idx, y);
+                });
+                
+                foamMesh.geometry.attributes.position.needsUpdate = true;
+                foamMesh.geometry.computeVertexNormals();
+                
+                // Update shader uniform for time-based ocean level calculation
+                if (foamMesh.material.uniforms && foamMesh.material.uniforms.time) {
+                    foamMesh.material.uniforms.time.value = elapsedTime;
+                }
+                
+                // Add gentle vertical floating motion to the entire foam patch
+                const foamFloatAmplitude = 0.3;
+                const foamFloatSpeed = 0.6 + (foamIndex * 0.1); // Slightly different speeds for each foam
+                const baseY = 2; // Raise the base Y position of foam (change this value)
+                foamMesh.position.y = baseY + Math.sin(elapsedTime * foamFloatSpeed + foamIndex) * foamFloatAmplitude;
+                
+                // Optional: Add slight rotation for more natural movement
+                foamMesh.rotation.y += 0.001 * (foamIndex % 2 === 0 ? 1 : -1); // Slow rotation
+            });
         }
 
         // Update boat ondulation (floating animation)
@@ -3037,33 +3177,34 @@ class MainScene extends ThreejsScene {
         
         // Leo follow-up sequence - continues the story after music starts
         this.dialogManager.addTranslation('leo_followup_1', {
-            'en': 'THIS MUSIC... IT BRINGS BACK MEMORIES...',
-            'pt': 'ESSA MÚSICA... TRAZ DE VOLTA MEMÓRIAS...',
-            'es': 'ESTA MÚSICA... TRAE RECUERDOS...',
-            'fr': 'CETTE MUSIQUE... ELLE RAPPELLE DES SOUVENIRS...',
-            'de': 'DIESE MUSIK... SIE WECKT ERINNERUNGEN...',
-            'ja': 'この音楽...記憶が蘇る...',
-            'zh': '这音乐...让我想起了回忆...'
+            'pt': 'ESTA ILHA... E ESSAS ROCHAS, SURGIRAM DO NADA...',
+            'en': 'THIS ISLAND... AND THESE ROCKS, APPEARED OUT OF NOWHERE...',
+            'es': 'ESTA ISLA... Y ESTAS ROCAS, APARECIERON DE LA NADA...',
+            'fr': 'CETTE ÎLE... ET CES ROCHERS, SONT APPARUS DE NULLE PART...',
+            'de': 'DIESE INSEL... UND DIESE FELSEN, SIND AUS DEM NICHTS AUFGETAUCHT...',
+            'ja': 'この島とこれらの岩は、どこからともなく現れた...',
+            'zh': '这个岛...还有这些岩石，都是凭空出现的...'
+
         });
         
         this.dialogManager.addTranslation('leo_followup_2', {
-            'en': 'I REMEMBER NOW... I WAS BUILDING A WEBSITE...',
-            'pt': 'LEMBRO AGORA... ESTAVA CONSTRUINDO UM SITE...',
-            'es': 'AHORA RECUERDO... ESTABA CONSTRUYENDO UN SITIO...',
-            'fr': 'JE ME SOUVIENS MAINTENANT... JE CONSTRUISAIS UN SITE...',
-            'de': 'ICH ERINNERE MICH... ICH BAUTE EINE WEBSITE...',
-            'ja': '思い出した...ウェブサイトを作っていた...',
-            'zh': '我记起来了...我在建一个网站...'
+            'pt': 'AGORA ESTOU PRESO AQUI...',
+            'en': 'NOW I\'M STUCK HERE...',
+            'es': 'AHORA ESTOY ATRAPADO AQUÍ...',
+            'fr': 'MAINTENANT JE SUIS COINCÉ ICI...',
+            'de': 'JETZT STECKE ICH HIER FEST...',
+            'ja': '今、ここに閉じ込められている...',
+            'zh': '现在我被困在这里...'
         });
         
         this.dialogManager.addTranslation('leo_followup_3', {
-            'en': 'WELCOME TO MY DIGITAL ISLAND! FEEL FREE TO EXPLORE.',
-            'pt': 'BEM-VINDO À MINHA ILHA DIGITAL! FIQUE À VONTADE PARA EXPLORAR.',
-            'es': '¡BIENVENIDO A MI ISLA DIGITAL! SIÉNTETE LIBRE DE EXPLORAR.',
-            'fr': 'BIENVENUE SUR MON ÎLE NUMÉRIQUE ! N\'HÉSITEZ PAS À EXPLORER.',
-            'de': 'WILLKOMMEN AUF MEINER DIGITALEN INSEL! ERKUNDEN SIE GERNE.',
-            'ja': 'デジタル島へようこそ！自由に探索してください。',
-            'zh': '欢迎来到我的数字岛屿！请随意探索。'
+            'pt': 'BOM, QUALQUER COISA PODE PERGUNTAR, OU FUÇAR MINHAS COISAS...',
+            'en': 'WELL, ANYTHING YOU CAN ASK, OR RUMMAGE THROUGH MY STUFF...',
+            'es': 'BUENO, CUALQUIER COSA PUEDES PREGUNTAR, O REVISA MIS COSAS...',
+            'fr': 'EH BIEN, TOUT CE QUE TU PEUX DEMANDER, OU FOUILLER DANS MES AFFAIRES...',
+            'de': 'WELL, ALLES KANNST DU FRAGEN, ODER IN MEINEN SACHEN WÜHLEN...',
+            'ja': 'まあ、何でも聞いて、私のものを調べてみて...',
+            'zh': '好吧，你可以问任何问题，或者翻找我的东西...'
         });
         
         // Brief interaction after full story is complete
