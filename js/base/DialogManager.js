@@ -18,6 +18,10 @@ class DialogManager {
         this.dialogCounter = 0;
         this.isTransitioning = false; // Flag to prevent rapid dialog creation
         
+        // Answer system for interactive dialogs
+        this.userAnswers = new Map(); // questionId -> selectedAnswer
+        this.activeQuestions = new Map(); // dialogId -> question instance
+        
         // 3D positioning system
         this.followingObjects = new Map(); // dialogId -> { object, offset }
         
@@ -383,6 +387,99 @@ class DialogManager {
                 0%, 50% { opacity: 1; }
                 51%, 100% { opacity: 0; }
             }
+            
+            /* Answer options styling */
+            .dialog-answers-container {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: 100%;
+                margin-top: calc(20px * var(--dialog-scale-factor));
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
+                gap: calc(10px * var(--dialog-scale-factor));
+                opacity: 0;
+                transform: translateY(10px);
+                transition: all 0.3s ease;
+                /* Performance optimizations */
+                will-change: transform, opacity;
+                transform: translateZ(0);
+            }
+            
+            .dialog-answers-container.show {
+                opacity: 1;
+                transform: translateY(0) translateZ(0);
+            }
+            
+            .dialog-answer-option {
+                font-family: 'Press Start 2P', monospace !important;
+                font-size: calc(var(--dialog-font-size) * 0.9);
+                letter-spacing: 1px;
+                line-height: 1.3;
+                color: #ffffff;
+                text-align: center;
+                padding: calc(var(--dialog-padding) * 0.7) calc(var(--dialog-padding) * 0.9);
+                background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
+                border: 2px solid #888888;
+                box-shadow: 0 0 calc(8px * var(--dialog-scale-factor)) #00000066;
+                cursor: pointer;
+                user-select: none;
+                min-height: calc(20px * var(--dialog-scale-factor));
+                transition: all 0.2s ease;
+                pointer-events: auto;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                /* Performance optimizations */
+                will-change: transform, background-color, border-color;
+                transform: translateZ(0);
+                backface-visibility: hidden;
+            }
+            
+            .dialog-answer-option:hover {
+                background: linear-gradient(145deg, #5a5a5a, #3a3a3a);
+                border-color: #aaaaaa;
+                transform: translateY(-2px);
+                box-shadow: 0 4px calc(12px * var(--dialog-scale-factor)) #00000088;
+            }
+            
+            .dialog-answer-option:active {
+                transform: translateY(1px);
+                box-shadow: 0 2px calc(6px * var(--dialog-scale-factor)) #00000066;
+            }
+            
+            .dialog-answer-option.selected {
+                background: linear-gradient(145deg, #4a8a4a, #2a6a2a);
+                border-color: #66aa66;
+                animation: selectedPulse 0.3s ease;
+            }
+            
+            @keyframes selectedPulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+            
+            @media (max-width: 768px) {
+                .dialog-answers-container {
+                    gap: calc(8px * var(--dialog-scale-factor));
+                }
+                
+                .dialog-answer-option {
+                    font-size: calc(var(--dialog-font-size) * 0.8);
+                    padding: calc(var(--dialog-padding) * 0.5) calc(var(--dialog-padding) * 0.7);
+                }
+            }
+            
+            /* Answer reference in dialog text */
+            .dialog-answer-reference {
+                color: #66aa66; /* Default green color for referenced answers */
+                font-weight: bold;
+                text-shadow: 0 0 2px rgba(102, 170, 102, 0.5);
+            }
         `;
         
         document.head.appendChild(styleSheet);
@@ -401,6 +498,65 @@ class DialogManager {
         // Reset transition flag and create new dialog immediately
         this.isTransitioning = false;
         return this._createDialog(options);
+    }
+    
+    /**
+     * Create a question dialog with answer options
+     * Creates normal dialog for question, answer options at bottom of screen
+     */
+    showQuestionDialog(options = {}) {
+        const {
+            textKey,
+            text,
+            questionId,
+            answers = [],
+            onAnswer,
+            position = 'center',
+            followTarget = null,
+            offset = { x: 0, y: 0 },
+            typewriterSpeed = 50,
+            className = '',
+            onComplete,
+            textSequence = null,
+            currentSequenceIndex = 0,
+            onSequenceComplete = null
+        } = options;
+        
+        // Validate answers
+        if (!Array.isArray(answers) || answers.length === 0) {
+            console.error('Question dialog requires an array of answers');
+            return null;
+        }
+        
+        if (answers.length > 4) {
+            console.warn('Question dialog supports maximum 4 answers, truncating');
+            answers.splice(4);
+        }
+        
+        // First, create a normal dialog for the question
+        const questionDialogId = this.showDialog({
+            textKey: textKey,
+            text: text,
+            position: position,
+            followTarget: followTarget,
+            offset: offset,
+            typewriterSpeed: typewriterSpeed,
+            className: className + ' question-dialog',
+            autoClose: false, // Don't auto-close, wait for answer
+            onComplete: (dialogId) => {
+                // After question text is complete, show answer options
+                this.showAnswerOptions(questionId, answers, onAnswer, questionDialogId, {
+                    textSequence,
+                    currentSequenceIndex,
+                    onSequenceComplete,
+                    originalOptions: options
+                });
+                
+                if (onComplete) onComplete(dialogId);
+            }
+        });
+        
+        return questionDialogId;
     }
     
     /**
@@ -477,7 +633,30 @@ class DialogManager {
             this.followingObjects.set(dialogId, { object: followObject, offset: followOffset });
             this.updateObjectPosition(dialogId);
         } else {
-            this.setStaticPosition(container, position);
+            // Convert string position to object format
+            let positionObj = position;
+            if (typeof position === 'string') {
+                switch (position) {
+                    case 'center':
+                        positionObj = { x: 50, y: 50, anchor: 'center' };
+                        break;
+                    case 'top':
+                        positionObj = { x: 50, y: 20, anchor: 'center' };
+                        break;
+                    case 'bottom':
+                        positionObj = { x: 50, y: 80, anchor: 'center' };
+                        break;
+                    case 'left':
+                        positionObj = { x: 20, y: 50, anchor: 'center' };
+                        break;
+                    case 'right':
+                        positionObj = { x: 80, y: 50, anchor: 'center' };
+                        break;
+                    default:
+                        positionObj = this.defaultPosition;
+                }
+            }
+            this.setStaticPosition(container, positionObj);
         }
         
         // Store dialog reference with sequence data
@@ -558,6 +737,12 @@ class DialogManager {
         const dialog = this.activeDialogs.get(dialogId);
         if (!dialog) return;
         
+        // Check if this dialog is currently waiting for an answer - if so, ignore clicks
+        if (dialog.waitingForAnswer) {
+            console.log('Dialog is waiting for answer, ignoring click');
+            return;
+        }
+        
         // Call onFirstClick callback if this is the first click
         if (!dialog.firstClickFired && dialog.onFirstClick) {
             console.log('Firing onFirstClick callback for dialog:', dialogId);
@@ -580,11 +765,67 @@ class DialogManager {
                 // Advance to next text in sequence
                 dialog.currentSequenceIndex = nextIndex;
                 
-                let nextContent;
                 const nextItem = dialog.textSequence[nextIndex];
                 
+                // Check if this is a question
+                if (typeof nextItem === 'object' && nextItem.isQuestion) {
+                    console.log('Showing question in sequence:', nextItem.textKey);
+                    
+                    // Get question text
+                    let questionText = nextItem.text || this.getText(nextItem.textKey) || 'Question text';
+                    
+                    // CRITICAL: Stop ALL ongoing animations for this dialog before starting new text
+                    if (dialog.typewriter && dialog.typewriter.stop) {
+                        try {
+                            dialog.typewriter.stop();
+                        } catch (error) {
+                            console.warn('Error stopping typewriter during sequence advance:', error);
+                        }
+                    }
+                    
+                    // Clear any ongoing typing timeout from previous text
+                    if (dialog.typingTimeoutId) {
+                        clearTimeout(dialog.typingTimeoutId);
+                        dialog.typingTimeoutId = null;
+                    }
+                    
+                    // Clear current text and start typing question text
+                    if (dialog.textContainer) {
+                        const cursorChar = this.getCursorCharacter();
+                        dialog.textContainer.innerHTML = `<span class="Typewriter__cursor">${cursorChar}</span>`;
+                        this.typeWithSound(dialog.textContainer, questionText, dialog.typewriterSpeed, () => {
+                            // Mark dialog as waiting for answer
+                            dialog.waitingForAnswer = true;
+                            
+                            // After question text completes, show answer options
+                            this.showAnswerOptions(
+                                nextItem.questionId, 
+                                nextItem.answers, 
+                                (questionId, answerValue, answerIndex) => {
+                                    // Store the answer and continue sequence
+                                    console.log('Answer selected in sequence:', answerValue);
+                                    
+                                    // Clear the waiting flag
+                                    dialog.waitingForAnswer = false;
+                                    
+                                    // Continue to next in sequence
+                                    this.handleDialogClick(dialogId); 
+                                }, 
+                                dialogId
+                            );
+                        });
+                    }
+                    return; // Don't continue processing, wait for answer
+                }
+                
+                // Handle dynamic text
+                let nextContent;
                 if (typeof nextItem === 'object') {
-                    nextContent = nextItem.text || this.getText(nextItem.textKey) || 'Dialog text';
+                    if (nextItem.useDynamicText && nextItem.getDynamicText) {
+                        nextContent = nextItem.getDynamicText();
+                    } else {
+                        nextContent = nextItem.text || this.getText(nextItem.textKey) || 'Dialog text';
+                    }
                 } else {
                     nextContent = nextItem;
                 }
@@ -705,8 +946,24 @@ class DialogManager {
     
     /**
      * Type text character by character with sound effects - Optimized for mobile performance
+     * Now supports HTML content for highlighting
      */
     typeWithSound(container, text, delay, onComplete) {
+        if (!container || !text) {
+            if (onComplete) onComplete();
+            return;
+        }
+        
+        // Check if text contains HTML
+        const hasHTML = /<[^>]*>/g.test(text);
+        
+        if (hasHTML) {
+            // Use HTML-aware typing for rich content
+            this.typeWithHTML(container, text, delay, onComplete);
+            return;
+        }
+        
+        // Original plain text typing logic
         // Find the dialog that owns this container to store timeout ID
         let ownerDialog = null;
         this.activeDialogs.forEach((dialog) => {
@@ -778,6 +1035,145 @@ class DialogManager {
             ownerDialog.typingTimeoutId = setTimeout(() => {
                 requestAnimationFrame(typeChar);
             }, delay);
+        }
+    }
+    
+    /**
+     * Type HTML content with highlighting support
+     * Pre-creates proper DOM structure and types into it smoothly
+     */
+    typeWithHTML(container, htmlText, delay, onComplete) {
+        // Find the dialog that owns this container to store timeout ID
+        let ownerDialog = null;
+        this.activeDialogs.forEach((dialog) => {
+            if (dialog.textContainer === container) {
+                ownerDialog = dialog;
+            }
+        });
+        
+        // Parse HTML to extract colored highlights with class information
+        const highlightRegex = /<span class="dialog-answer-highlight(?:\s+(\w+))?">(.*?)<\/span>/g;
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+        
+        // Split text into parts (plain text and highlighted sections with color info)
+        while ((match = highlightRegex.exec(htmlText)) !== null) {
+            // Add text before the highlight
+            if (match.index > lastIndex) {
+                const beforeText = htmlText.substring(lastIndex, match.index);
+                // Remove any HTML tags from plain text parts
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = beforeText;
+                const plainText = tempDiv.textContent || tempDiv.innerText || '';
+                if (plainText) {
+                    parts.push({
+                        type: 'plain',
+                        text: plainText
+                    });
+                }
+            }
+            
+            // Add the highlighted text with color class
+            parts.push({
+                type: 'highlight',
+                text: match[2], // The text content
+                colorClass: match[1] || '' // The color class (red, blue, green, yellow)
+            });
+            
+            lastIndex = match.index + match[0].length;
+        }
+        
+        // Add remaining text after last highlight
+        if (lastIndex < htmlText.length) {
+            const afterText = htmlText.substring(lastIndex);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = afterText;
+            const plainText = tempDiv.textContent || tempDiv.innerText || '';
+            if (plainText) {
+                parts.push({
+                    type: 'plain',
+                    text: plainText
+                });
+            }
+        }
+        
+        // If no parts found, treat as plain text
+        if (parts.length === 0) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlText;
+            const plainText = tempDiv.textContent || tempDiv.innerText || '';
+            parts.push({
+                type: 'plain',
+                text: plainText
+            });
+        }
+        
+        // Set up cursor
+        const cursorChar = this.getCursorCharacter();
+        
+        // Clear container and create structure
+        container.innerHTML = '';
+        const spans = [];
+        
+        // Pre-create all spans with proper classes
+        parts.forEach((part, index) => {
+            const span = document.createElement('span');
+            if (part.type === 'highlight') {
+                span.className = `dialog-answer-highlight${part.colorClass ? ' ' + part.colorClass : ''}`;
+            }
+            spans.push(span);
+            container.appendChild(span);
+        });
+        
+        // Add cursor span
+        const cursorSpan = document.createElement('span');
+        cursorSpan.className = 'Typewriter__cursor';
+        cursorSpan.textContent = cursorChar;
+        container.appendChild(cursorSpan);
+        
+        let currentPartIndex = 0;
+        let currentCharIndex = 0;
+        
+        const typeChar = () => {
+            if (!ownerDialog || !this.activeDialogs.has(ownerDialog.dialogId)) {
+                console.log('Dialog destroyed during HTML typing, stopping animation');
+                return;
+            }
+            
+            if (currentPartIndex < parts.length) {
+                const currentPart = parts[currentPartIndex];
+                const currentSpan = spans[currentPartIndex];
+                
+                if (currentCharIndex < currentPart.text.length) {
+                    // Add character to current span
+                    currentSpan.textContent += currentPart.text[currentCharIndex];
+                    
+                    // Play sound
+                    this.playTypingSound();
+                    
+                    currentCharIndex++;
+                } else {
+                    // Move to next part
+                    currentPartIndex++;
+                    currentCharIndex = 0;
+                }
+                
+                if (ownerDialog) {
+                    ownerDialog.typingTimeoutId = setTimeout(typeChar, delay);
+                }
+            } else {
+                // Typing complete
+                if (ownerDialog) {
+                    ownerDialog.typingTimeoutId = null;
+                }
+                if (onComplete) onComplete();
+            }
+        };
+        
+        // Start typing
+        if (ownerDialog) {
+            ownerDialog.typingTimeoutId = setTimeout(typeChar, delay);
         }
     }
     
@@ -998,6 +1394,170 @@ class DialogManager {
      */
     getActiveDialogCount() {
         return this.activeDialogs.size;
+    }
+    
+    /**
+     * Show answer options at the bottom of screen (separate from dialog)
+     */
+    showAnswerOptions(questionId, answers, onAnswer, questionDialogId, sequenceData = {}) {
+        // First, remove any existing answer containers
+        const existingContainers = document.querySelectorAll('.dialog-answer-container');
+        existingContainers.forEach(container => {
+            if (container && container.parentNode) {
+                container.parentNode.removeChild(container);
+            }
+        });
+        
+        // Create answer container at bottom of screen
+        const answerContainer = document.createElement('div');
+        answerContainer.className = 'dialog-answer-container';
+        answerContainer.setAttribute('data-question-id', questionId);
+        answerContainer.setAttribute('data-dialog-id', questionDialogId);
+        
+        // Create answer options
+        answers.forEach((answer, index) => {
+            const answerOption = document.createElement('div');
+            answerOption.className = 'dialog-answer-option';
+            answerOption.setAttribute('data-answer-index', index);
+            
+            // Support both string answers and object answers with text, value, and color
+            const answerText = typeof answer === 'string' ? answer : answer.text;
+            const answerValue = typeof answer === 'string' ? answer : (answer.value || answer.text);
+            const answerColor = typeof answer === 'string' ? null : answer.color;
+            
+            answerOption.textContent = answerText;
+            answerOption.setAttribute('data-answer-value', answerValue);
+            if (answerColor) {
+                answerOption.setAttribute('data-answer-color', answerColor);
+                // Apply color class to the answer option
+                answerOption.classList.add(answerColor);
+            }
+            
+            // Add click handler for answer selection - pass the full answer object
+            answerOption.addEventListener('click', () => {
+                this.handleAnswerSelection(questionId, answer, answerValue, answerColor, index, onAnswer, questionDialogId, sequenceData);
+            });
+            
+            answerContainer.appendChild(answerOption);
+        });
+        
+        document.body.appendChild(answerContainer);
+        
+        // Store answer container info
+        this.activeQuestions.set(questionId, {
+            questionDialogId: questionDialogId,
+            answerContainer: answerContainer,
+            answered: false,
+            answers: answers.map((answer, index) => ({
+                text: typeof answer === 'string' ? answer : answer.text,
+                value: typeof answer === 'string' ? answer : (answer.value || answer.text),
+                color: typeof answer === 'string' ? null : answer.color,
+                index: index
+            })),
+            timestamp: Date.now(),
+            sequenceData: sequenceData
+        });
+        
+        // Show answer options with animation after a short delay
+        setTimeout(() => {
+            answerContainer.classList.add('show');
+        }, 300);
+        
+        console.log('Answer options shown for question:', questionId);
+    }
+    
+
+    
+    /**
+     * Handle answer selection for question dialogs
+     */
+    handleAnswerSelection(questionId, answerObject, answerValue, answerColor, answerIndex, onAnswer, questionDialogId, sequenceData = {}) {
+        console.log('Answer selected:', answerValue, 'with color:', answerColor, 'for question:', questionId);
+        
+        // Store the answer with all its information
+        if (questionId) {
+            this.userAnswers.set(questionId, {
+                value: answerValue,
+                color: answerColor,
+                index: answerIndex,
+                timestamp: Date.now()
+            });
+        }
+        
+        // Get question state and answer container
+        const questionState = this.activeQuestions.get(questionId);
+        if (!questionState) return;
+        
+        // Mark question as answered
+        questionState.answered = true;
+        questionState.selectedAnswer = answerValue;
+        questionState.selectedIndex = answerIndex;
+        
+        // Visual feedback for selected answer
+        const answerContainer = questionState.answerContainer;
+        const selectedOption = answerContainer.querySelector(`[data-answer-index="${answerIndex}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+            
+            // Disable all other options
+            const allOptions = answerContainer.querySelectorAll('.dialog-answer-option');
+            allOptions.forEach(option => {
+                if (option !== selectedOption) {
+                    option.classList.add('disabled');
+                }
+            });
+        }
+        
+        // Clean up answer options after a brief visual feedback
+        setTimeout(() => {
+            // Remove ALL answer containers from screen immediately
+            const allAnswerContainers = document.querySelectorAll('.dialog-answer-container');
+            allAnswerContainers.forEach(container => {
+                if (container && container.parentNode) {
+                    container.style.opacity = '0';
+                    container.style.display = 'none';
+                    container.parentNode.removeChild(container);
+                }
+            });
+            
+            // Also clean up from activeQuestions
+            this.activeQuestions.delete(questionId);
+            
+            // Call answer callback - this will trigger sequence continuation in handleDialogClick
+            if (onAnswer) {
+                onAnswer(questionId, answerValue, answerIndex, questionDialogId);
+            }
+        }, 500);
+    }
+    
+    /**
+     * Get user's answer for a specific question
+     */
+    getUserAnswer(questionId) {
+        return this.userAnswers.get(questionId);
+    }
+    
+    /**
+     * Check if a question has been answered
+     */
+    isQuestionAnswered(questionId) {
+        const answer = this.userAnswers.get(questionId);
+        return answer !== undefined;
+    }
+    
+    /**
+     * Get all user answers
+     */
+    getAllAnswers() {
+        return new Map(this.userAnswers);
+    }
+    
+    /**
+     * Clear all stored answers
+     */
+    clearAllAnswers() {
+        this.userAnswers.clear();
+        this.activeQuestions.clear();
     }
     
     /**

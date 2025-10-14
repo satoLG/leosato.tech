@@ -1,5 +1,5 @@
 import ThreejsScene from '../base/scene.js';
-import DialogManager from '../base/DialogManager.js?v=3';
+import DialogManager from '../base/DialogManager.js?v=4';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
@@ -359,6 +359,8 @@ class MainScene extends ThreejsScene {
 
         // Update boundaries on window resize
         window.addEventListener('resize', this.onWindowResize.bind(this));
+        
+
 
         // Current pixel size state
         this.pixelControls = {
@@ -1400,48 +1402,51 @@ class MainScene extends ThreejsScene {
         // Track if welcome music has started
         let welcomeMusicStarted = false;
         
-        // Create dialog immediately - the DialogManager handles the pop-in animation
+        // Create the full welcome sequence: 1,2,3,4,5,6,7
+        // Dialog 4 will be a question, dialog 5 will use the answer
         const welcomeDialogId = this.dialogManager.showDialog({
             textSequence: [
                 { textKey: 'welcome_1' },
                 { textKey: 'welcome_2' },
                 { textKey: 'welcome_3' },
-                { textKey: 'welcome_4' },
-                { textKey: 'welcome_5' },
-                { textKey: 'welcome_6' },
-                { textKey: 'welcome_7' }
+                { 
+                    textKey: 'welcome_4',
+                    isQuestion: true,
+                    questionId: 'how_did_you_get_here',
+                    answers: [
+                        { text: 'Google', value: 'Google', color: 'red' },
+                        { text: 'LinkedIn', value: 'LinkedIn', color: 'blue' },
+                        { text: 'External Link', value: 'External Link', color: 'green' },
+                        { text: 'Others', value: 'Others', color: 'yellow' }
+                    ]
+                },
+                { 
+                    textKey: 'welcome_5',
+                    useDynamicText: true,
+                    getDynamicText: () => {
+                        const userAnswer = this.dialogManager.getUserAnswer('how_did_you_get_here');
+                        let welcome5Text = this.dialogManager.getText('welcome_5');
+                        
+                        // Replace {source} with the actual answer, wrapped in highlight styling with its color
+                        if (userAnswer) {
+                            const colorClass = userAnswer.color || 'green'; // Default to green if no color
+                            const highlightedAnswer = `<span class="dialog-answer-highlight ${colorClass}">${userAnswer.value}</span>`;
+                            welcome5Text = welcome5Text.replace('{source}', highlightedAnswer);
+                        }
+                        return welcome5Text;
+                    }
+                },
+                { textKey: 'welcome_6' }
             ],
-            position: { x: 50, y: 50, anchor: 'center' },
+            position: 'center',
             typewriterSpeed: 45,
+            onSequenceComplete: this.handleWelcomeComplete.bind(this),
             onFirstClick: () => {
                 // Play welcome music on first click
                 if (!welcomeMusicStarted) {
                     console.log('Starting welcome music on first dialog click');
                     this.playWelcomeMusic();
                     welcomeMusicStarted = true;
-                }
-            },
-            onSequenceComplete: (dialogId) => {
-                console.log('Welcome sequence completed, starting intro animation');
-                this.dialogManager.closeDialog(dialogId);
-                this.hideStartButton();
-                
-                // Stop welcome music and start intro
-                this.stopWelcomeMusic();
-                
-                // Wait a moment then start intro
-                if (this.allModelsLoaded) {
-                    setTimeout(() => {
-                        this.startIntroAnimation();
-                    }, 800); // Wait for shrinking animation
-                } else {
-                    console.log('Dialog sequence completed, waiting for models to load...');
-                    const checkModels = setInterval(() => {
-                        if (this.allModelsLoaded) {
-                            clearInterval(checkModels);
-                            this.startIntroAnimation();
-                        }
-                    }, 100);
                 }
             }
         });
@@ -1456,6 +1461,30 @@ class MainScene extends ThreejsScene {
             setTimeout(() => {
                 startButtonContainer.style.display = 'none';
             }, 800);
+        }
+    }
+    
+    handleWelcomeComplete(dialogId) {
+        console.log('Welcome sequence completed, starting intro animation');
+        this.dialogManager.closeDialog(dialogId);
+        this.hideStartButton();
+        
+        // Stop welcome music and start intro
+        this.stopWelcomeMusic();
+        
+        // Wait a moment then start intro
+        if (this.allModelsLoaded) {
+            setTimeout(() => {
+                this.startIntroAnimation();
+            }, 800); // Wait for shrinking animation
+        } else {
+            console.log('Dialog sequence completed, waiting for models to load...');
+            const checkModels = setInterval(() => {
+                if (this.allModelsLoaded) {
+                    clearInterval(checkModels);
+                    this.startIntroAnimation();
+                }
+            }, 100);
         }
     }
 
@@ -3022,213 +3051,93 @@ class MainScene extends ThreejsScene {
         // Welcome message sequence translations
         this.dialogManager.addTranslation('welcome_1', {
             'pt': 'OI...',
-            'en': 'HI...',
-            'es': 'HOLA...',
-            'fr': 'SALUT...',
-            'de': 'HALLO...',
-            'ja': 'こんにちは...',
-            'zh': '你好...'
+            'en': 'HI...'
         });
         
         this.dialogManager.addTranslation('welcome_2', {
-            'pt': 'ONDE ESTAMOS ?..',
-            'en': 'WHERE ARE WE ?..',
-            'es': '¿DÓNDE ESTAMOS ?..',
-            'fr': 'OÙ SOMMES-NOUS ?..',
-            'de': 'WO SIND WIR ?..',
-            'ja': 'ここはどこ？..',
-            'zh': '我们在哪里？..'
+            'pt': 'EI, VOCÊ ...',
+            'en': 'HEY, YOU ...'
         });
         
         this.dialogManager.addTranslation('welcome_3', {
-            'pt': 'NÃO CONSIGO ME LEMBRAR ...',
-            'en': 'I CAN\'T REMEMBER ...',
-            'es': 'NO PUEDO RECORDAR ...',
-            'fr': 'JE NE PEUX PAS ME SOUVENIR ...',
-            'de': 'ICH KANN MICH NICHT ERINNERN ...',
-            'ja': '思い出せない...',
-            'zh': '我想不起来了...'
-        });
-
-        this.dialogManager.addTranslation('welcome_3', {
-            'pt': 'NÃO CONSIGO ME LEMBRAR ...',
-            'en': 'I CAN\'T REMEMBER ...',
-            'es': 'NO PUEDO RECORDAR ...',
-            'fr': 'JE NE PEUX PAS ME SOUVENIR ...',
-            'de': 'ICH KANN MICH NICHT ERINNERN ...',
-            'ja': '思い出せない...',
-            'zh': '我想不起来了...'
+            'pt': 'SABE QUE LUGAR É ESSE ? ...',
+            'en': 'DO YOU KNOW WHAT PLACE THIS IS ? ...',
         });
 
         this.dialogManager.addTranslation('welcome_4', {
             'pt': 'COMO VOCÊ CHEGOU AQUI ? ...',
-            'en': 'HOW DID YOU GET HERE ? ...',
-            'es': '¿CÓMO LLEGASTE AQUÍ ? ...',
-            'fr': 'COMMENT ÊTES-VOUS ARRIVÉ ICI ? ...',
-            'de': 'WIE SIND SIE HIERHER GEKOMMEN ? ...',
-            'ja': 'どうやってここに来たの？...',
-            'zh': '我想不起来了...'
+            'en': 'HOW DID YOU GET HERE ? ...'
         });
 
         this.dialogManager.addTranslation('welcome_5', {
-            'pt': 'ENTENDI, DO LINKEDIN ...',
-            'en': 'I SEE, FROM LINKEDIN ...',
-            'es': 'YA VEO, DE LINKEDIN ...',
-            'fr': 'JE VOIS, DE LINKEDIN ...',
-            'de': 'ICH SEHE, VON LINKEDIN ...',
-            'ja': 'ああ、LinkedInからか...',
-            'zh': '我明白了，来自LinkedIn...'
+            'pt': 'ENTENDI, VOCÊ VEIO DE {source} ...',
+            'en': 'I SEE, SO YOU CAME FROM {source} ...'
         });
 
         this.dialogManager.addTranslation('welcome_6', {
-            'pt': 'PELO MENOS NÃO ESTOU SOZINHO ...',
-            'en': 'AT LEAST I\'M NOT ALONE ...',
-            'es': 'AL MENOS NO ESTOY SOLO ...',
-            'fr': 'AU MOINS, JE NE SUIS PAS SEUL ...',
-            'de': 'WENIGSTENS BIN ICH NICHT ALLEIN ...',
-            'ja': '少なくとも私は一人ではない...',
-            'zh': '至少我不是一个人...'
-        });
-
-        this.dialogManager.addTranslation('welcome_7', {
-            'pt': 'BOM, O QUE ESTÁ FAZENDO AÍ EM CIMA ? DESÇA PRA CÁ ...',
-            'en': 'WELL, WHAT ARE YOU DOING UP THERE? COME DOWN HERE ...',
-            'es': 'BUENO, ¿QUÉ HACES ALLÁ ARRIBA? VEN AQUÍ ...',
-            'fr': 'EH BIEN, QUE FAITES-VOUS LA-HAUT ? DESCENDEZ ICI ...',
-            'de': 'WELL, WAS MACHST DU DA OBEN? KOMM HERUNTER ...',
-            'ja': 'さて、上で何をしているの？降りてきて ...',
-            'zh': '那么，你在上面做什么？下来这里 ...'
+            'pt': 'BOM, O QUE ESTÁ FAZENDO AÍ EM CIMA ? DESÇA PRA CÁ PRA CONVERSAR ...',
+            'en': 'WELL, WHAT ARE YOU DOING UP THERE? COME DOWN HERE TO TALK ...'
         });
 
         // Example interactions with objects
         this.dialogManager.addTranslation('tree_intro', {
-            'en': 'A lone tree stands tall...',
-            'pt': 'Uma árvore solitária se ergue...',
-            'es': 'Un árbol solitario se alza...',
-            'fr': 'Un arbre solitaire se dresse...',
-            'de': 'Ein einsamer Baum steht hoch...',
-            'ja': '一本の木が立っている...',
-            'zh': '一棵孤独的树屹立着...'
+            'en': 'A very tall tree, how did it grow on an island like this? ...',
+            'pt': 'Uma árvore bem alta, como cresceu em uma ilha dessas ? ...'
         });
         
         // Rock interaction
         this.dialogManager.addTranslation('rock_intro', {
             'en': 'Ancient rocks scattered around the island...',
-            'pt': 'Rochas antigas espalhadas pela ilha...',
-            'es': 'Rocas antiguas esparcidas por la isla...',
-            'fr': 'Roches anciennes éparpillées autour de l\'île...',
-            'de': 'Alte Felsen verstreut um die Insel...',
-            'ja': '島の周りに散らばる古い岩...',
-            'zh': '散落在岛屿周围的古老岩石...'
+            'pt': 'Rochas antigas espalhadas pela ilha...'
         });
         
         // Boat interaction
         this.dialogManager.addTranslation('boat_intro', {
-            'en': 'An old wooden boat... How did it get here?',
-            'pt': 'Um barco de madeira velho... Como chegou aqui?',
-            'es': 'Un viejo barco de madera... ¿Cómo llegó aquí?',
-            'fr': 'Un vieux bateau en bois... Comment est-il arrivé ici?',
-            'de': 'Ein altes Holzboot... Wie ist es hierher gekommen?',
-            'ja': '古い木製のボート...どうやってここに？',
-            'zh': '一艘旧木船...它是怎么到这里的？'
+            'en': 'This is Leo\'s boat...',
+            'pt': 'Esse é o barco do Leo...'
         });
         
         // Crate interaction
         this.dialogManager.addTranslation('crate_interaction', {
-            'en': 'A wooden crate... What could be inside? Try dragging it around!',
-            'pt': 'Uma caixa de madeira... O que pode haver dentro? Tente arrastá-la!',
-            'es': 'Una caja de madera... ¿Qué podría haber dentro? ¡Intenta arrastrarla!',
-            'fr': 'Une caisse en bois... Que pourrait-il y avoir dedans? Essayez de la faire glisser!',
-            'de': 'Eine Holzkiste... Was könnte drin sein? Versuchen Sie, sie zu ziehen!',
-            'ja': '木箱...中に何があるのだろう？ドラッグしてみて！',
-            'zh': '一个木箱...里面会有什么？试着拖动它！'
+            'en': 'Just a wooden crate with some junk inside...',
+            'pt': 'Apenas uma caixa de madeira com umas tralhas dentro...'
         });
         
         // Character interaction - Leo introduction sequence
         this.dialogManager.addTranslation('leo_intro_1', {
             'en': 'HEY... I\'M LEO, HOW\'S IT GOING?',
-            'pt': 'OPA... SOU LEO, COMO VAI?',
-            'es': 'OYE... SOY LEO, ¿QUÉ TAL?',
-            'fr': 'SALUT... JE SUIS LEO, COMMENT ÇA VA?',
-            'de': 'HEY... ICH BIN LEO, WIE GEHT\'S?',
-            'ja': 'やあ...レオ・サトです、元気？',
-            'zh': '嘿...我是LEO，你好吗？'
+            'pt': 'OPA... SOU LEO, COMO VAI?'
         });
         
         this.dialogManager.addTranslation('leo_intro_2', {
             'en': 'I DON\'T KNOW HOW I ENDED UP HERE...',
-            'pt': 'NÃO SEI COMO VIM PARAR AQUI...',
-            'es': 'NO SÉ CÓMO TERMINÉ AQUÍ...',
-            'fr': 'JE NE SAIS PAS COMMENT J\'AI FINI ICI...',
-            'de': 'ICH WEIß NICHT, WIE ICH HIER GELANDET BIN...',
-            'ja': 'どうやってここに来たのか分からない...',
-            'zh': '我不知道我是怎么到这里的...'
+            'pt': 'NÃO SEI COMO VIM PARAR AQUI...'
         });
         
         this.dialogManager.addTranslation('leo_intro_3', {
             'en': 'I WAS TRAVELING WITH MY THINGS, AND SUDDENLY...',
-            'pt': 'ESTAVA VIAJANDO COM MINHAS COISAS, E DE REPENTE...',
-            'es': 'ESTABA VIAJANDO CON MIS COSAS, Y DE REPENTE...',
-            'fr': 'JE VOYAGEAIS AVEC MES AFFAIRES, ET SOUDAIN...',
-            'de': 'ICH WAR MIT MEINEN SACHEN UNTERWEGS, UND PLÖTZLICH...',
-            'ja': '荷物を持って旅行していたのに、突然...',
-            'zh': '我带着我的东西在旅行，突然...'
+            'pt': 'ESTAVA VIAJANDO COM MINHAS COISAS, E DE REPENTE...'
         });
         
         // Leo follow-up sequence - continues the story after music starts
         this.dialogManager.addTranslation('leo_followup_1', {
             'pt': 'ESTA ILHA... E ESSAS ROCHAS, SURGIRAM DO NADA...',
-            'en': 'THIS ISLAND... AND THESE ROCKS, APPEARED OUT OF NOWHERE...',
-            'es': 'ESTA ISLA... Y ESTAS ROCAS, APARECIERON DE LA NADA...',
-            'fr': 'CETTE ÎLE... ET CES ROCHERS, SONT APPARUS DE NULLE PART...',
-            'de': 'DIESE INSEL... UND DIESE FELSEN, SIND AUS DEM NICHTS AUFGETAUCHT...',
-            'ja': 'この島とこれらの岩は、どこからともなく現れた...',
-            'zh': '这个岛...还有这些岩石，都是凭空出现的...'
+            'en': 'THIS ISLAND... AND THESE ROCKS, APPEARED OUT OF NOWHERE...'
 
         });
         
         this.dialogManager.addTranslation('leo_followup_2', {
             'pt': 'AGORA ESTOU PRESO AQUI...',
-            'en': 'NOW I\'M STUCK HERE...',
-            'es': 'AHORA ESTOY ATRAPADO AQUÍ...',
-            'fr': 'MAINTENANT JE SUIS COINCÉ ICI...',
-            'de': 'JETZT STECKE ICH HIER FEST...',
-            'ja': '今、ここに閉じ込められている...',
-            'zh': '现在我被困在这里...'
+            'en': 'NOW I\'M STUCK HERE...'
         });
         
         this.dialogManager.addTranslation('leo_followup_3', {
-            'pt': 'BOM, QUALQUER COISA PODE PERGUNTAR, OU FUÇAR MINHAS COISAS...',
-            'en': 'WELL, ANYTHING YOU CAN ASK, OR RUMMAGE THROUGH MY STUFF...',
-            'es': 'BUENO, CUALQUIER COSA PUEDES PREGUNTAR, O REVISA MIS COSAS...',
-            'fr': 'EH BIEN, TOUT CE QUE TU PEUX DEMANDER, OU FOUILLER DANS MES AFFAIRES...',
-            'de': 'WELL, ALLES KANNST DU FRAGEN, ODER IN MEINEN SACHEN WÜHLEN...',
-            'ja': 'まあ、何でも聞いて、私のものを調べてみて...',
-            'zh': '好吧，你可以问任何问题，或者翻找我的东西...'
-        });
-        
-        // Brief interaction after full story is complete
-        this.dialogManager.addTranslation('leo_brief_interaction', {
-            'en': 'HOPE YOU\'RE ENJOYING THE VISIT!',
-            'pt': 'ESPERO QUE ESTEJA CURTINDO A VISITA!',
-            'es': '¡ESPERO QUE ESTÉS DISFRUTANDO LA VISITA!',
-            'fr': 'J\'ESPÈRE QUE VOUS APPRÉCIEZ LA VISITE !',
-            'de': 'ICH HOFFE, DU GENIEßT DEN BESUCH!',
-            'ja': '訪問を楽しんでいただけてますか！',
-            'zh': '希望你喜欢这次访问！'
-        });
-        
-        // Keep original character interaction for fallback
-        this.dialogManager.addTranslation('character_intro', {
-            'en': 'Is that... me? What am I doing here?',
-            'pt': 'Isso é... eu? O que estou fazendo aqui?',
-            'es': '¿Ese soy... yo? ¿Qué estoy haciendo aquí?',
-            'fr': 'Est-ce que c\'est... moi? Que fais-je ici?',
-            'de': 'Bin das... ich? Was mache ich hier?',
-            'ja': 'あれは...私？何をしているんだろう？',
-            'zh': '那是...我吗？我在这里做什么？'
+            'pt': 'BOM, JÁ QUE NÃO TENHO PRA ONDE IR, PODEMOS CONVERSAR SE QUISER...',
+            'en': 'WELL, SINCE I HAVE NOWHERE TO GO, WE CAN TALK IF YOU WANT...'
         });
     }
+    
+
 }
 
 export default MainScene;

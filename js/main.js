@@ -1,5 +1,5 @@
 import DebugGui from './base/debug_gui.js';
-import MainScene from './scenes/main_scene.js?v=4';
+import MainScene from './scenes/main_scene.js?v=5';
 
 let currentScene = null;
 

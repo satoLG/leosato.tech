@@ -251,3 +251,245 @@ a {
 }
 
 /* Old typewriter styles removed - now handled by DialogManager */
+
+/* Answer options container - always at bottom of screen */
+.dialog-answer-container {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 50% !important;
+    width: 90% !important;
+    max-width: 800px !important;
+    z-index: 1001 !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: 1fr 1fr !important;
+    gap: 15px !important;
+    opacity: 0 !important;
+    transform: translateX(-50%) translateY(20px) !important;
+    transition: all 0.4s ease !important;
+    pointer-events: none !important;
+}
+
+.dialog-answer-container.show {
+    opacity: 1 !important;
+    transform: translateX(-50%) translateY(0) !important;
+    pointer-events: all !important;
+}
+
+.dialog-answer-option {
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 10px !important;
+    letter-spacing: 1px !important;
+    line-height: 1.4 !important;
+    color: #ffffff !important;
+    text-align: center !important;
+    padding: 15px 20px !important;
+    background: linear-gradient(145deg, #4a4a4a, #2a2a2a) !important;
+    border: 2px solid #888888 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: all 0.2s ease !important;
+    min-height: 60px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Color variants for answer options */
+.dialog-answer-option.red {
+    color: #ff6666 !important;
+    text-shadow: 0 0 4px rgba(255, 102, 102, 0.5) !important;
+    border-color: #ff6666 !important;
+}
+
+.dialog-answer-option.blue {
+    color: #6666ff !important;
+    text-shadow: 0 0 4px rgba(102, 102, 255, 0.5) !important;
+    border-color: #6666ff !important;
+}
+
+.dialog-answer-option.green {
+    color: #66ff66 !important;
+    text-shadow: 0 0 4px rgba(102, 255, 102, 0.5) !important;
+    border-color: #66ff66 !important;
+}
+
+.dialog-answer-option.yellow {
+    color: #ffff66 !important;
+    text-shadow: 0 0 4px rgba(255, 255, 102, 0.5) !important;
+    border-color: #ffff66 !important;
+}
+
+.dialog-answer-option:hover {
+    background: linear-gradient(145deg, #5a5a5a, #3a3a3a) !important;
+    border-color: #aaaaaa !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5) !important;
+}
+
+.dialog-answer-option.selected {
+    background: linear-gradient(145deg, #4a7c59, #2d5233) !important;
+    border-color: #66aa66 !important;
+    color: #ccffcc !important;
+    transform: scale(0.98) !important;
+}
+
+.dialog-answer-option.disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
+/* Highlighted answer text within dialogs */
+.dialog-answer-highlight {
+    color: #66ff66 !important; /* Default bright green for user answers */
+    text-shadow: 0 0 4px rgba(102, 255, 102, 0.5) !important; /* Subtle glow effect */
+    font-weight: bold !important;
+    animation: answerGlow-green 2s ease-in-out infinite alternate !important;
+}
+
+/* Color variants for different answers */
+.dialog-answer-highlight.red {
+    color: #ff6666 !important;
+    text-shadow: 0 0 4px rgba(255, 102, 102, 0.5) !important;
+    animation: answerGlow-red 2s ease-in-out infinite alternate !important;
+}
+
+.dialog-answer-highlight.blue {
+    color: #6666ff !important;
+    text-shadow: 0 0 4px rgba(102, 102, 255, 0.5) !important;
+    animation: answerGlow-blue 2s ease-in-out infinite alternate !important;
+}
+
+.dialog-answer-highlight.green {
+    color: #66ff66 !important;
+    text-shadow: 0 0 4px rgba(102, 255, 102, 0.5) !important;
+    animation: answerGlow-green 2s ease-in-out infinite alternate !important;
+}
+
+.dialog-answer-highlight.yellow {
+    color: #ffff66 !important;
+    text-shadow: 0 0 4px rgba(255, 255, 102, 0.5) !important;
+    animation: answerGlow-yellow 2s ease-in-out infinite alternate !important;
+}
+
+/* Animation keyframes for each color */
+@keyframes answerGlow-red {
+    from {
+        text-shadow: 0 0 4px rgba(255, 102, 102, 0.5);
+    }
+    to {
+        text-shadow: 0 0 8px rgba(255, 102, 102, 0.8), 0 0 12px rgba(255, 102, 102, 0.3);
+    }
+}
+
+@keyframes answerGlow-blue {
+    from {
+        text-shadow: 0 0 4px rgba(102, 102, 255, 0.5);
+    }
+    to {
+        text-shadow: 0 0 8px rgba(102, 102, 255, 0.8), 0 0 12px rgba(102, 102, 255, 0.3);
+    }
+}
+
+@keyframes answerGlow-green {
+    from {
+        text-shadow: 0 0 4px rgba(102, 255, 102, 0.5);
+    }
+    to {
+        text-shadow: 0 0 8px rgba(102, 255, 102, 0.8), 0 0 12px rgba(102, 255, 102, 0.3);
+    }
+}
+
+@keyframes answerGlow-yellow {
+    from {
+        text-shadow: 0 0 4px rgba(255, 255, 102, 0.5);
+    }
+    to {
+        text-shadow: 0 0 8px rgba(255, 255, 102, 0.8), 0 0 12px rgba(255, 255, 102, 0.3);
+    }
+}
+
+/* Alternative highlight styles for different contexts */
+.dialog-answer-highlight.info {
+    color: #66aaff !important; /* Blue for informational highlights */
+    text-shadow: 0 0 4px rgba(102, 170, 255, 0.5) !important;
+}
+
+.dialog-answer-highlight.warning {
+    color: #ffaa66 !important; /* Orange for warnings */
+    text-shadow: 0 0 4px rgba(255, 170, 102, 0.5) !important;
+}
+
+.dialog-answer-highlight.emphasis {
+    color: #ff6666 !important; /* Red for emphasis */
+    text-shadow: 0 0 4px rgba(255, 102, 102, 0.5) !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .dialog-answer-container {
+        width: 95% !important;
+        gap: 10px !important;
+        bottom: 10px !important;
+    }
+    
+    .dialog-answer-option {
+        font-size: 8px !important;
+        padding: 12px 15px !important;
+        min-height: 50px !important;
+    }
+    
+    /* Mobile color variants for answer options */
+    .dialog-answer-option.red {
+        color: #ff6666 !important;
+        text-shadow: 0 0 2px rgba(255, 102, 102, 0.7) !important;
+        border-color: #ff6666 !important;
+    }
+    
+    .dialog-answer-option.blue {
+        color: #6666ff !important;
+        text-shadow: 0 0 2px rgba(102, 102, 255, 0.7) !important;
+        border-color: #6666ff !important;
+    }
+    
+    .dialog-answer-option.green {
+        color: #66ff66 !important;
+        text-shadow: 0 0 2px rgba(102, 255, 102, 0.7) !important;
+        border-color: #66ff66 !important;
+    }
+    
+    .dialog-answer-option.yellow {
+        color: #ffff66 !important;
+        text-shadow: 0 0 2px rgba(255, 255, 102, 0.7) !important;
+        border-color: #ffff66 !important;
+    }
+    
+    /* Reduce glow effects on mobile for better performance */
+    .dialog-answer-highlight {
+        animation: none !important;
+        text-shadow: 0 0 2px rgba(102, 255, 102, 0.7) !important;
+    }
+    
+    .dialog-answer-highlight.red {
+        animation: none !important;
+        text-shadow: 0 0 2px rgba(255, 102, 102, 0.7) !important;
+    }
+    
+    .dialog-answer-highlight.blue {
+        animation: none !important;
+        text-shadow: 0 0 2px rgba(102, 102, 255, 0.7) !important;
+    }
+    
+    .dialog-answer-highlight.green {
+        animation: none !important;
+        text-shadow: 0 0 2px rgba(102, 255, 102, 0.7) !important;
+    }
+    
+    .dialog-answer-highlight.yellow {
+        animation: none !important;
+        text-shadow: 0 0 2px rgba(255, 255, 102, 0.7) !important;
+    }
+}
