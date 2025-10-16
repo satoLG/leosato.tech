@@ -228,6 +228,7 @@ class DialogManager {
     
     /**
      * Initialize CSS styles for dialog boxes
+     * Loads external CSS file instead of inline styles
      */
     initializeStyles() {
         // Set initial CSS custom properties
@@ -236,253 +237,19 @@ class DialogManager {
         document.documentElement.style.setProperty('--dialog-padding', '50px');
         document.documentElement.style.setProperty('--dialog-min-width', '250px');
         
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = `
-            .dialog-manager-container {
-                position: fixed;
-                pointer-events: none;
-                z-index: 1000;
-                transition: all 0.3s ease;
-                transform-origin: center;
-                /* Performance optimizations for mobile */
-                will-change: transform, opacity;
-                transform: translateZ(0); /* Force hardware acceleration */
-            }
-            
-            .dialog-box {
-                display: flex;
-                align-items: center;
-                justify-content: left;
-                font-family: 'Press Start 2P', monospace !important;
-                font-size: var(--dialog-font-size);
-                letter-spacing: 1px;
-                line-height: 1.4; /* Add proper line spacing for multi-line text */
-                color: #ffffff;
-                text-align: center;
-                padding: var(--dialog-padding) calc(var(--dialog-padding) * 1.4);
-                background: linear-gradient(145deg, #2a2a2aff, #1a1a1aff);
-                border: 3px solid #ffffff;
-                box-shadow: 0 0 calc(14px * var(--dialog-scale-factor)) #0000008f;
-                cursor: pointer;
-                user-select: none;
-                min-width: var(--dialog-min-width);
-                max-width: calc(90vw);
-                min-height: calc(25px * var(--dialog-scale-factor));
-                position: relative;
-                transition: opacity 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), 
-                           transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-                pointer-events: auto;
-                opacity: 0;
-                transform: scale(0);
-                transform-origin: center center;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                /* Performance optimizations for mobile */
-                will-change: transform, opacity;
-                transform: translateZ(0); /* Force hardware acceleration */
-                contain: layout style; /* Prevent layout recalculation cascading */
-                isolation: isolate; /* Create new stacking context */
-            }
-            
-            @media (max-width: 768px) {
-                .dialog-box {
-                    max-width: 85vw;
-                    font-size: calc(var(--dialog-font-size) * 1.1);
-                    line-height: 1.3;
-                }
-            }
-            
-            .dialog-box.show {
-                opacity: 1;
-                transform: scale(1);
-            }
-            
-            .dialog-box.fade-out {
-                opacity: 0 !important;
-                transform: scale(0) !important;
-                pointer-events: none !important;
-                transition: opacity 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53),
-                           transform 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) !important;
-            }
-            
-            .dialog-triangle {
-                content: '';
-                position: absolute;
-                width: 0;
-                height: 0;
-                border-left: 12px solid transparent;
-                border-right: 12px solid transparent;
-                border-top: 12px solid #ffffff;
-            }
-            
-            .dialog-triangle-inner {
-                content: '';
-                position: absolute;
-                width: 0;
-                height: 0;
-                border-left: 10px solid transparent;
-                border-right: 10px solid transparent;
-                border-top: 10px solid #2a2a2aff;
-            }
-            
-            .dialog-triangle.bottom {
-                bottom: -12px;
-                left: 15%;
-                transform: translateX(-50%);
-            }
-            
-            .dialog-triangle-inner.bottom {
-                bottom: -8px;
-                left: 15%;
-                transform: translateX(-50%);
-            }
-            
-            .dialog-triangle.top {
-                top: -12px;
-                left: 15%;
-                transform: translateX(-50%) rotate(180deg);
-            }
-            
-            .dialog-triangle-inner.top {
-                top: -8px;
-                left: 15%;
-                transform: translateX(-50%) rotate(180deg);
-            }
-            
-            .dialog-triangle.left {
-                left: -12px;
-                top: 50%;
-                transform: translateY(-50%) rotate(-90deg);
-            }
-            
-            .dialog-triangle-inner.left {
-                left: -8px;
-                top: 50%;
-                transform: translateY(-50%) rotate(-90deg);
-            }
-            
-            .dialog-triangle.right {
-                right: -12px;
-                top: 50%;
-                transform: translateY(-50%) rotate(90deg);
-            }
-            
-            .dialog-triangle-inner.right {
-                right: -8px;
-                top: 50%;
-                transform: translateY(-50%) rotate(90deg);
-            }
-            
-            .Typewriter__cursor {
-                font-weight: bold;
-                animation: blink 1s infinite;
-                margin-left: 2px;
-                /* Performance optimizations for mobile */
-                will-change: opacity;
-                transform: translateZ(0); /* Force hardware acceleration */
-                backface-visibility: hidden;
-            }
-            
-            @keyframes blink {
-                0%, 50% { opacity: 1; }
-                51%, 100% { opacity: 0; }
-            }
-            
-            /* Answer options styling */
-            .dialog-answers-container {
-                position: absolute;
-                top: 100%;
-                left: 0;
-                width: 100%;
-                margin-top: calc(20px * var(--dialog-scale-factor));
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                grid-template-rows: 1fr 1fr;
-                gap: calc(10px * var(--dialog-scale-factor));
-                opacity: 0;
-                transform: translateY(10px);
-                transition: all 0.3s ease;
-                /* Performance optimizations */
-                will-change: transform, opacity;
-                transform: translateZ(0);
-            }
-            
-            .dialog-answers-container.show {
-                opacity: 1;
-                transform: translateY(0) translateZ(0);
-            }
-            
-            .dialog-answer-option {
-                font-family: 'Press Start 2P', monospace !important;
-                font-size: calc(var(--dialog-font-size) * 0.9);
-                letter-spacing: 1px;
-                line-height: 1.3;
-                color: #ffffff;
-                text-align: center;
-                padding: calc(var(--dialog-padding) * 0.7) calc(var(--dialog-padding) * 0.9);
-                background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
-                border: 2px solid #888888;
-                box-shadow: 0 0 calc(8px * var(--dialog-scale-factor)) #00000066;
-                cursor: pointer;
-                user-select: none;
-                min-height: calc(20px * var(--dialog-scale-factor));
-                transition: all 0.2s ease;
-                pointer-events: auto;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                /* Performance optimizations */
-                will-change: transform, background-color, border-color;
-                transform: translateZ(0);
-                backface-visibility: hidden;
-            }
-            
-            .dialog-answer-option:hover {
-                background: linear-gradient(145deg, #5a5a5a, #3a3a3a);
-                border-color: #aaaaaa;
-                transform: translateY(-2px);
-                box-shadow: 0 4px calc(12px * var(--dialog-scale-factor)) #00000088;
-            }
-            
-            .dialog-answer-option:active {
-                transform: translateY(1px);
-                box-shadow: 0 2px calc(6px * var(--dialog-scale-factor)) #00000066;
-            }
-            
-            .dialog-answer-option.selected {
-                background: linear-gradient(145deg, #4a8a4a, #2a6a2a);
-                border-color: #66aa66;
-                animation: selectedPulse 0.3s ease;
-            }
-            
-            @keyframes selectedPulse {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.05); }
-                100% { transform: scale(1); }
-            }
-            
-            @media (max-width: 768px) {
-                .dialog-answers-container {
-                    gap: calc(8px * var(--dialog-scale-factor));
-                }
-                
-                .dialog-answer-option {
-                    font-size: calc(var(--dialog-font-size) * 0.8);
-                    padding: calc(var(--dialog-padding) * 0.5) calc(var(--dialog-padding) * 0.7);
-                }
-            }
-            
-            /* Answer reference in dialog text */
-            .dialog-answer-reference {
-                color: #66aa66; /* Default green color for referenced answers */
-                font-weight: bold;
-                text-shadow: 0 0 2px rgba(102, 170, 102, 0.5);
-            }
-        `;
-        
-        document.head.appendChild(styleSheet);
+        // Check if dialog CSS is already loaded
+        const existingLink = document.querySelector('link[href*="dialog.css"]');
+        if (!existingLink) {
+            // Load external dialog CSS file
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = './css/dialog.css';
+            link.onerror = () => {
+                console.warn('Failed to load dialog.css, dialog styling may not work properly');
+            };
+            document.head.appendChild(link);
+        }
     }
     
     /**
@@ -538,8 +305,9 @@ class DialogManager {
             textKey: textKey,
             text: text,
             position: position,
-            followTarget: followTarget,
-            offset: offset,
+            followObject: followTarget,
+            followOffset: offset,
+            trianglePosition: options.trianglePosition || 'bottom',
             typewriterSpeed: typewriterSpeed,
             className: className + ' question-dialog',
             autoClose: false, // Don't auto-close, wait for answer

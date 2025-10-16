@@ -101,6 +101,11 @@ class MainScene extends ThreejsScene {
         
         // Dialog Manager - will be initialized after camera and renderer are ready
         this.dialogManager = null;
+        
+        // Interaction points system
+        this.interactionPoints = new Map(); // objectId -> HTML element
+        this.interactableObjects = new Map(); // objectId -> {object, type, config}
+        this.interactionPointsVisible = false;
     }
 
     loadAudio() {
@@ -360,6 +365,11 @@ class MainScene extends ThreejsScene {
         // Update boundaries on window resize
         window.addEventListener('resize', this.onWindowResize.bind(this));
         
+        // Cleanup interaction points on page unload
+        window.addEventListener('beforeunload', () => {
+            this.cleanupInteractionPoints();
+        });
+        
 
 
         // Current pixel size state
@@ -478,10 +488,10 @@ class MainScene extends ThreejsScene {
                 // Store reference to boat 
                 this.boat = model;
                 
-                // No interactivity - boat is purely decorative/platform
-                // model.userData.interactive = false; // Not interactive
-                // model.userData.dialogKey = undefined; // No dialog
-                // model.userData.draggable = false; // Not draggable
+                // Add interactivity for boat (via interaction points)
+                model.userData.interactive = true; // Interactive via points
+                model.userData.dialogKey = 'boat_intro'; // Dialog key
+                model.userData.draggable = false; // Not draggable
                 model.userData.name = 'Wooden Boat (Static Platform)';
                 
                 // Don't add to geometries array since it's not interactive
@@ -548,6 +558,7 @@ class MainScene extends ThreejsScene {
             (model) => {
                 // Store reference to character model
                 this.characterModel = model;
+                this.character = model;
                 
                 // Add click interaction for character - will show intro sequence first time
                 model.userData.interactive = true;
@@ -881,8 +892,13 @@ class MainScene extends ThreejsScene {
 
     /**
      * Handle interaction with 3D models (like palm tree)
+     * Disabled when interaction points are visible
      */
     handleModelInteraction(model, intersectionPoint) {
+        // Don't handle direct model interactions if interaction points are visible
+        if (this.interactionPointsVisible) {
+            return;
+        }
         if (!this.dialogManager) return;
         
         const dialogKey = model.userData.dialogKey;
@@ -1562,6 +1578,12 @@ class MainScene extends ThreejsScene {
                 console.log('Leo follow-up sequence completed - story introduction finished');
                 // Mark that the full introduction story has been told
                 characterModel.userData.hasShownFullStory = true;
+                
+                // Setup and reveal interaction points after a short delay
+                setTimeout(() => {
+                    this.setupInteractionPoints();
+                    this.showInteractionPoints();
+                }, 1000);
             }
         });
     }
@@ -3040,8 +3062,325 @@ class MainScene extends ThreejsScene {
         if (this.dialogManager) {
             this.dialogManager.updateFollowingDialogs();
         }
+        
+        // Update interaction points positions
+        this.updateInteractionPoints();
     }
     
+    /**
+     * Create HTML interaction point for a 3D object
+     */
+    createInteractionPoint(objectId, object, type = 'info', icon = '', config = {}) {
+        // Create HTML element
+        const point = document.createElement('div');
+        point.className = `interaction-point ${type}`;
+        point.textContent = icon;
+        point.setAttribute('data-object-id', objectId);
+        
+        // Add click handler
+        point.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.handleInteractionPointClick(objectId, object, type, config);
+        });
+        
+        // Add to DOM
+        document.body.appendChild(point);
+        
+        // Store references
+        this.interactionPoints.set(objectId, point);
+        this.interactableObjects.set(objectId, { object, type, config });
+        
+        return point;
+    }
+    
+    /**
+     * Update positions of all interaction points
+     */
+    updateInteractionPoints() {
+        if (!this.interactionPointsVisible || !this.camera) return;
+        
+        this.interactionPoints.forEach((point, objectId) => {
+            const objectData = this.interactableObjects.get(objectId);
+            if (!objectData) return;
+            
+            const { object } = objectData;
+            const worldPosition = new THREE.Vector3();
+            
+            // Get object world position
+            if (object.getWorldPosition) {
+                object.getWorldPosition(worldPosition);
+            } else {
+                worldPosition.copy(object.position);
+            }
+            
+            // Add offset for better positioning
+            //worldPosition.y += 50; // Slightly above object
+            
+            // Project to screen coordinates
+            const screenPosition = worldPosition.clone();
+            screenPosition.project(this.camera);
+            
+            // Convert to pixel coordinates
+            const x = (screenPosition.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (screenPosition.y * -0.5 + 0.5) * window.innerHeight;
+            
+            // Update position
+            point.style.left = `${x}px`;
+            point.style.top = `${y}px`;
+            
+            // Hide if behind camera or too far
+            if (screenPosition.z > 1) {
+                point.style.display = 'none';
+            } else {
+                point.style.display = 'flex';
+            }
+        });
+    }
+    
+    /**
+     * Show all interaction points with animation
+     */
+    showInteractionPoints() {
+        this.interactionPointsVisible = true;
+        
+        // Animate in each point with a slight delay
+        let delay = 0;
+        this.interactionPoints.forEach((point) => {
+            setTimeout(() => {
+                point.classList.add('show');
+            }, delay);
+            delay += 200; // 200ms delay between each point
+        });
+        
+        console.log('Interaction points revealed!');
+    }
+    
+    /**
+     * Hide all interaction points
+     */
+    hideInteractionPoints() {
+        this.interactionPointsVisible = false;
+        this.interactionPoints.forEach((point) => {
+            point.classList.remove('show');
+        });
+    }
+    
+    /**
+     * Handle interaction point click
+     */
+    handleInteractionPointClick(objectId, object, type, config) {
+        console.log(`Interaction point clicked: ${objectId}, type: ${type}`);
+        
+        // Handle different types of interactions
+        switch (type) {
+            case 'question':
+                this.handleQuestionInteraction(objectId, object, config);
+                break;
+            case 'info':
+                this.handleInfoInteraction(objectId, object, config);
+                break;
+            case 'interact':
+                this.handleObjectInteraction(objectId, object, config);
+                break;
+            default:
+                console.warn(`Unknown interaction type: ${type}`);
+        }
+    }
+    
+    /**
+     * Handle question type interactions (for me.glb character)
+     */
+    handleQuestionInteraction(objectId, object, config) {
+        const questionId = `question_${objectId}_${Date.now()}`;
+        
+        this.dialogManager.showQuestionDialog({
+            textKey: 'character_question_prompt',
+            text: 'HEY, WHAT DO YOU WANT TO KNOW?',
+            questionId: questionId,
+            answers: [
+                { text: 'WHO ARE YOU?', value: 'who', color: 'red' },
+                { text: 'HOW DID YOU GET HERE?', value: 'how', color: 'blue' },
+                { text: 'WHAT IS THIS PLACE?', value: 'what', color: 'green' },
+                { text: 'TELL ME ABOUT YOUR WORK', value: 'work', color: 'yellow' }
+            ],
+            followTarget: object,
+            offset: { x: 0, y: 150, z: 0 },
+            trianglePosition: 'bottom',
+            onAnswer: (selectedAnswer) => {
+                this.handleCharacterQuestionAnswer(selectedAnswer, object);
+            }
+        });
+    }
+    
+    /**
+     * Handle character question answers
+     */
+    handleCharacterQuestionAnswer(answer, object) {
+        const sequences = {
+            who: [
+                { text: 'I\'M LEONARDO SATO, A SOFTWARE DEVELOPER...' },
+                { text: 'I LOVE CREATING INTERACTIVE EXPERIENCES LIKE THIS ONE...' },
+                { text: 'I\'VE BEEN PROGRAMMING FOR SEVERAL YEARS NOW...' }
+            ],
+            how: [
+                { text: 'HONESTLY, I\'M NOT SURE HOW I ENDED UP HERE...' },
+                { text: 'ONE MOMENT I WAS WORKING ON MY PORTFOLIO...' },
+                { text: 'THE NEXT THING I KNEW, I WAS ON THIS MYSTERIOUS ISLAND...' }
+            ],
+            what: [
+                { text: 'THIS IS MY DIGITAL PORTFOLIO ISLAND...' },
+                { text: 'I CREATED THIS PLACE TO SHOWCASE MY WORK...' },
+                { text: 'FEEL FREE TO EXPLORE AND INTERACT WITH EVERYTHING!' }
+            ],
+            work: [
+                { text: 'I SPECIALIZE IN FULL-STACK DEVELOPMENT...' },
+                { text: 'I WORK WITH JAVASCRIPT, REACT, THREE.JS, AND MORE...' },
+                { text: 'CHECK OUT THE INTERACTIVE OBJECTS AROUND THE ISLAND!' }
+            ]
+        };
+        
+        const sequence = sequences[answer.value] || sequences.who;
+        
+        this.dialogManager.showDialog({
+            textSequence: sequence,
+            followObject: object,
+            followOffset: { x: 0, y: 150, z: 0 },
+            trianglePosition: 'bottom',
+            autoClose: true,
+            autoCloseDelay: 8000,
+            typewriterSpeed: 60
+        });
+    }
+    
+    /**
+     * Handle info type interactions (for objects like tree, rocks, boat)
+     */
+    handleInfoInteraction(objectId, object, config) {
+        const textKey = config.textKey || `${objectId}_info`;
+        
+        this.dialogManager.showDialog({
+            textKey: textKey,
+            followObject: object,
+            followOffset: config.offset || { x: 0, y: 100, z: 0 },
+            trianglePosition: 'bottom',
+            autoClose: true,
+            autoCloseDelay: 5000,
+            typewriterSpeed: 50
+        });
+    }
+    
+    /**
+     * Handle interactive objects (for draggable cubes/crates)
+     */
+    handleObjectInteraction(objectId, object, config) {
+        // Handle cubes with names and URLs
+        if (config.cubeName && config.cubeUrl) {
+            const customText = `${config.cubeName}`;
+            
+            this.dialogManager.showDialog({
+                text: customText,
+                followObject: object,
+                followOffset: config.offset || { x: 0, y: 80, z: 0 },
+                trianglePosition: 'bottom',
+                autoClose: true,
+                autoCloseDelay: 4000,
+                typewriterSpeed: 45,
+                onComplete: (dialogId) => {
+                    // Store the URL in dialog for click handling
+                    const dialog = this.dialogManager.activeDialogs.get(dialogId);
+                    if (dialog) {
+                        dialog.linkUrl = config.cubeUrl;
+                    }
+                }
+            });
+        } else {
+            // Default crate interaction
+            const textKey = config.textKey || `${objectId}_interaction`;
+            
+            this.dialogManager.showDialog({
+                textKey: textKey,
+                followObject: object,
+                followOffset: config.offset || { x: 0, y: 80, z: 0 },
+                trianglePosition: 'bottom',
+                autoClose: true,
+                autoCloseDelay: 5000,
+                typewriterSpeed: 50
+            });
+        }
+    }
+    
+    /**
+     * Cleanup all interaction points
+     */
+    cleanupInteractionPoints() {
+        this.interactionPoints.forEach((point) => {
+            if (point.parentNode) {
+                point.parentNode.removeChild(point);
+            }
+        });
+        this.interactionPoints.clear();
+        this.interactableObjects.clear();
+    }
+
+    /**
+     * Setup all interaction points for objects in the scene
+     */
+    setupInteractionPoints() {
+        // Character interaction (question type)
+        if (this.character) {
+            this.createInteractionPoint('character', this.character, 'question', '?', {
+                offset: { x: 0, y: 0, z: 0 }
+            });
+        }
+        
+        // Tree interaction
+        if (this.tree) {
+            this.createInteractionPoint('tree', this.tree, 'info', '', {
+                textKey: 'tree_intro',
+                offset: { x: 0, y: 0, z: 0 }
+            });
+        }
+        
+        // Boat interaction
+        if (this.boat) {
+            this.createInteractionPoint('boat', this.boat, 'info', '', {
+                textKey: 'boat_intro',
+                offset: { x: 0, y: 0, z: 0 }
+            });
+        }
+        
+        // Add interaction points for draggable objects (cubes and crates)
+        this.geometries.forEach((object, index) => {
+            if (object.userData && object.userData.name) {
+                // Check if it's a cube with URL (social media cubes)
+                if (object.userData.url) {
+                    this.createInteractionPoint(`cube_${index}`, object, 'interact', '', {
+                        cubeName: object.userData.name,
+                        cubeUrl: object.userData.url,
+                        offset: { x: 0, y: 80, z: 0 }
+                    });
+                }
+                // Check if it's a crate with dialogKey
+                else if (object.userData.dialogKey === 'crate_interaction') {
+                    this.createInteractionPoint(`crate_${index}`, object, 'interact', '', {
+                        textKey: 'crate_interaction',
+                        offset: { x: 0, y: 80, z: 0 }
+                    });
+                }
+            }
+        });
+        
+        // Add interaction points for rocks (if they exist)
+        if (this.rocks && this.rocks.length > 0) {
+            this.rocks.forEach((rock, index) => {
+                this.createInteractionPoint(`rock_${index}`, rock, 'info', '', {
+                    textKey: 'rock_intro',
+                    offset: { x: 0, y: 0, z: 0 }
+                });
+            });
+        }
+    }
+
     /**
      * Setup dialog translations for different languages
      */
@@ -3134,6 +3473,12 @@ class MainScene extends ThreejsScene {
         this.dialogManager.addTranslation('leo_followup_3', {
             'pt': 'BOM, JÁ QUE NÃO TENHO PRA ONDE IR, PODEMOS CONVERSAR SE QUISER...',
             'en': 'WELL, SINCE I HAVE NOWHERE TO GO, WE CAN TALK IF YOU WANT...'
+        });
+        
+        // Character question interactions
+        this.dialogManager.addTranslation('character_question_prompt', {
+            'pt': 'EI, O QUE VOCÊ QUER SABER?',
+            'en': 'HEY, WHAT DO YOU WANT TO KNOW?'
         });
     }
     
